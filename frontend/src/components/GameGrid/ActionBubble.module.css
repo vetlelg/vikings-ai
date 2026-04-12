@@ -1,0 +1,30 @@
+.bubble {
+  position: absolute;
+  top: -26px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 17, 24, 0.92);
+  border: 1px solid rgba(212, 168, 67, 0.4);
+  border-radius: 10px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  animation: action-bubble 3.5s ease forwards;
+  pointer-events: none;
+  z-index: 50;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.emoji {
+  font-size: 11px;
+  line-height: 1;
+}
+
+.text {
+  font-size: 10px;
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  line-height: 1;
+}

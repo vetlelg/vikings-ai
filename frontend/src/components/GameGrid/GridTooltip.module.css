@@ -1,0 +1,77 @@
+.tooltip {
+  position: fixed;
+  background: rgba(13, 15, 20, 0.95);
+  border: 1px solid rgba(212, 168, 67, 0.35);
+  border-radius: 6px;
+  padding: 6px 10px;
+  pointer-events: none;
+  z-index: 100;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  max-width: 240px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.terrain {
+  color: var(--color-gold);
+  font-weight: 600;
+}
+
+.coords {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 4px 0;
+}
+
+.agent {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  color: var(--color-text);
+}
+
+.agentName {
+  font-weight: 600;
+}
+
+.agentRole {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+.agentHp {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-green);
+}
+
+.entity {
+  color: var(--color-text-muted);
+  padding: 2px 0;
+}
+
+.threat {
+  padding: 2px 0;
+  font-weight: 600;
+}
+
+.LOW { color: var(--color-text-muted); }
+.MEDIUM { color: var(--color-orange); }
+.HIGH { color: var(--color-red); }
+.CRITICAL { color: var(--color-red-bright); }
