@@ -1,0 +1,46 @@
+.token {
+  position: absolute;
+  width: var(--cell-size);
+  height: var(--cell-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--transition-glide);
+  z-index: 10;
+  pointer-events: auto;
+  cursor: default;
+}
+
+.ring {
+  position: absolute;
+  inset: 4px;
+  border: 2px solid var(--ring-color);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.JARL { --ring-color: #d4a843; }
+.WARRIOR { --ring-color: #c0392b; }
+.FISHERMAN { --ring-color: #3498db; }
+.SHIPBUILDER { --ring-color: #8b6914; }
+.SKALD { --ring-color: #9b59b6; }
+
+.thinking {
+  animation: thinking-pulse 1.5s ease-in-out infinite;
+}
+
+.dead {
+  opacity: 0.25;
+  filter: grayscale(100%);
+}
+
+.nameTag {
+  position: absolute;
+  bottom: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  pointer-events: none;
+}

@@ -1,0 +1,87 @@
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: var(--color-surface);
+  border-bottom: 1px solid rgba(212, 168, 67, 0.2);
+  gap: 16px;
+  min-height: 48px;
+}
+
+.section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.timeDisplay {
+  font-family: var(--font-saga);
+  font-size: 14px;
+  color: var(--color-gold);
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.timeIcon {
+  font-size: 18px;
+  transition: transform 0.5s ease;
+}
+
+.weatherBadge {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--color-surface-raised);
+  color: var(--color-text-muted);
+}
+
+.resource {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 13px;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.agentStatus {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.agentDot {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.alive { background: var(--color-green); }
+.dead { background: var(--color-red-bright); }
+.thinking { background: #f1c40f; animation: thinking-pulse 1.5s ease-in-out infinite; }
+
+.connectionDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.connected { background: var(--color-green); }
+.disconnected { background: var(--color-red-bright); }
+
+.tick {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+}

@@ -1,0 +1,45 @@
+.cell {
+  width: var(--cell-size);
+  height: var(--cell-size);
+  border-radius: 2px;
+}
+
+.GRASS {
+  background: linear-gradient(135deg, #3a5a2c, #4a6a3c);
+}
+
+.FOREST {
+  background: linear-gradient(135deg, #1e3a1a, #2a4a26);
+}
+.FOREST::after {
+  content: '';
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 50% 60%, rgba(0,0,0,0.15) 0%, transparent 60%);
+}
+
+.WATER {
+  background: linear-gradient(135deg, #1a3a5c, #2a6a9c, #1a3a5c);
+  background-size: 200% 200%;
+  animation: water-shimmer 4s ease-in-out infinite;
+}
+
+.MOUNTAIN {
+  background: linear-gradient(to top, #4a4a52, #7a7a82, #e8e8f0);
+}
+
+.BEACH {
+  background: linear-gradient(135deg, #c4a44a, #d4b86a);
+}
+
+.VILLAGE {
+  background: linear-gradient(135deg, #6b4c2a, #8b6c4a);
+}
+.VILLAGE::after {
+  content: '';
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 50% 50%, rgba(212,168,67,0.08) 0%, transparent 70%);
+}

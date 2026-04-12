@@ -1,0 +1,37 @@
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 8px 2px var(--glow-color, #d4a843); }
+  50% { box-shadow: 0 0 20px 6px var(--glow-color, #d4a843); }
+}
+
+@keyframes thinking-pulse {
+  0%, 100% { filter: drop-shadow(0 0 4px #f1c40f); opacity: 1; }
+  50% { filter: drop-shadow(0 0 12px #f1c40f); opacity: 0.8; }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes snowfall {
+  0% { transform: translateY(-10px) translateX(0); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 0.6; }
+  100% { transform: translateY(800px) translateX(20px); opacity: 0; }
+}
+
+@keyframes fire-trail {
+  0% { opacity: 0.8; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.5); }
+  100% { opacity: 0; transform: scale(0.5); }
+}
+
+@keyframes dragon-glow {
+  0%, 100% { box-shadow: 0 0 15px 5px rgba(255, 68, 0, 0.6); }
+  50% { box-shadow: 0 0 35px 15px rgba(255, 68, 0, 0.9); }
+}
+
+@keyframes water-shimmer {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}

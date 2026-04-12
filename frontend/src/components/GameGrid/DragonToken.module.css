@@ -1,0 +1,20 @@
+.dragon {
+  position: absolute;
+  width: calc(var(--cell-size) * 1.8);
+  height: calc(var(--cell-size) * 1.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--transition-glide);
+  z-index: 20;
+  animation: dragon-glow 2s ease-in-out infinite;
+  border-radius: 50%;
+  margin-left: calc(var(--cell-size) * -0.4);
+  margin-top: calc(var(--cell-size) * -0.4);
+  pointer-events: none;
+}
+
+.icon {
+  font-size: 28px;
+  filter: drop-shadow(0 0 8px rgba(255, 68, 0, 0.8));
+}

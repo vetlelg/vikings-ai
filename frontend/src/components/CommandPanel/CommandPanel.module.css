@@ -1,0 +1,31 @@
+.commandBar {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px;
+  background: var(--color-surface);
+  border-top: 1px solid rgba(212, 168, 67, 0.2);
+}
+
+.commandButton {
+  background: var(--color-surface-raised);
+  color: var(--color-gold);
+  border: 1px solid var(--color-gold);
+  padding: 6px 18px;
+  font-family: var(--font-saga);
+  font-size: 12px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+
+.commandButton:hover {
+  background: rgba(212, 168, 67, 0.15);
+  box-shadow: 0 0 12px rgba(212, 168, 67, 0.3);
+}
+
+.commandButton:active {
+  transform: scale(0.97);
+}

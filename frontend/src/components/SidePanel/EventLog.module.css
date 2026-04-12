@@ -1,0 +1,51 @@
+.eventPanel {
+  background: var(--color-surface);
+  border: 1px solid rgba(212, 168, 67, 0.15);
+  border-radius: 4px;
+  padding: 8px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.heading {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.entry {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.6;
+  padding: 2px 0;
+  animation: fade-in-up 0.3s ease forwards;
+}
+
+.tick {
+  color: var(--color-text-muted);
+  margin-right: 6px;
+}
+
+/* Event type colors */
+.COMBAT, .RAID_INCOMING { color: #c0392b; }
+.DRAGON_SIGHTED, .DRAGON_DEFEATED { color: #e67e22; font-weight: bold; }
+.WOLF_SPOTTED { color: #e67e22; }
+.AGENT_DIED { color: #ff4444; font-weight: bold; }
+.RESOURCE_GATHERED, .BUILDING_COMPLETE { color: #2ecc71; }
+.NIGHT_FALLING, .DAWN_BREAKING { color: #8e8e8e; }
+.WEATHER_CHANGE { color: #3498db; }
+.AGENT_SPOKE { color: #9b59b6; }
+
+.empty {
+  font-style: italic;
+  color: var(--color-text-muted);
+  text-align: center;
+  font-size: 11px;
+  padding: 16px;
+}

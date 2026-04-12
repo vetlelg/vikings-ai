@@ -1,0 +1,50 @@
+import { useEffect, useRef } from 'react';
+import { useGameStore } from '../../store/gameStore';
+import styles from './EventLog.module.css';
+
+export function EventLog() {
+  const worldEvents = useGameStore((s) => s.worldEvents);
+  const agentActions = useGameStore((s) => s.agentActions);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Merge events and actions, sorted by tick
+  const entries = [
+    ...worldEvents.map((e) => ({
+      tick: e.tick,
+      type: e.eventType,
+      text: e.description,
+      key: `e-${e.tick}-${e.eventType}-${e.description.slice(0, 20)}`,
+    })),
+    ...agentActions.map((a) => ({
+      tick: a.tick,
+      type: a.action,
+      text: `${a.agentName}: ${a.action}${a.direction ? ' ' + a.direction : ''} — ${a.reasoning}`,
+      key: `a-${a.tick}-${a.agentName}`,
+    })),
+  ].sort((a, b) => a.tick - b.tick);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [entries.length]);
+
+  return (
+    <div className={styles.eventPanel} ref={scrollRef}>
+      <div className={styles.heading}>Event Log</div>
+      {entries.length === 0 ? (
+        <div className={styles.empty}>No events yet...</div>
+      ) : (
+        entries.slice(-100).map((entry) => (
+          <div
+            key={entry.key}
+            className={`${styles.entry} ${styles[entry.type] || ''}`}
+          >
+            <span className={styles.tick}>[{entry.tick}]</span>
+            {entry.text}
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
