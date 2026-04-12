@@ -59,11 +59,19 @@ object GameConfig {
         )
     }
 
+    private val defaultModels = mapOf(
+        "claude" to "claude-sonnet-4-20250514",
+        "gemini" to "gemini-2.5-flash",
+        "groq" to "llama-3.1-8b-instant"
+    )
+
     fun createLlmProvider(): LlmProvider {
+        val model = if (System.getenv("LLM_MODEL") != null) llm.model
+                     else defaultModels[llm.provider] ?: llm.model
         return when (llm.provider) {
-            "claude" -> ClaudeProvider(llm.apiKey, llm.model)
-            "gemini" -> GeminiProvider(llm.apiKey, llm.model)
-            "groq" -> GroqProvider(llm.apiKey, llm.model)
+            "claude" -> ClaudeProvider(llm.apiKey, model)
+            "gemini" -> GeminiProvider(llm.apiKey, model)
+            "groq" -> GroqProvider(llm.apiKey, model)
             else -> StubProvider()
         }
     }
