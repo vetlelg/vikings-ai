@@ -8,22 +8,20 @@
   transition: transform var(--transition-glide);
   z-index: 10;
   pointer-events: auto;
-  cursor: default;
+  cursor: pointer;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
 }
 
-.ring {
-  position: absolute;
-  inset: 4px;
-  border: 2px solid var(--ring-color);
-  border-radius: 50%;
-  pointer-events: none;
-}
+.JARL { --glow-color: #d4a843; }
+.WARRIOR { --glow-color: #c0392b; }
+.FISHERMAN { --glow-color: #3498db; }
+.SHIPBUILDER { --glow-color: #8b6914; }
+.SKALD { --glow-color: #9b59b6; }
 
-.JARL { --ring-color: #d4a843; }
-.WARRIOR { --ring-color: #c0392b; }
-.FISHERMAN { --ring-color: #3498db; }
-.SHIPBUILDER { --ring-color: #8b6914; }
-.SKALD { --ring-color: #9b59b6; }
+.selected {
+  z-index: 12;
+  filter: drop-shadow(0 0 6px var(--glow-color)) drop-shadow(0 0 12px var(--glow-color));
+}
 
 .thinking {
   animation: thinking-pulse 1.5s ease-in-out infinite;
@@ -36,11 +34,12 @@
 
 .nameTag {
   position: absolute;
-  bottom: -14px;
+  bottom: -12px;
   left: 50%;
   transform: translateX(-50%);
   font-size: 9px;
-  color: var(--color-text-muted);
+  color: var(--color-text);
   white-space: nowrap;
   pointer-events: none;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }

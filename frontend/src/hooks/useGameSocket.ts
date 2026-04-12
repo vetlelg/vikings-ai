@@ -16,6 +16,14 @@ export function useGameSocket() {
   const setConnected = useGameStore((s) => s.setConnected);
 
   const connect = useCallback(() => {
+    // Close any existing connection before opening a new one
+    // (prevents duplicates under React StrictMode)
+    if (wsRef.current) {
+      wsRef.current.onclose = null;
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+
     try {
       const ws = new WebSocket(WS_URL);
 

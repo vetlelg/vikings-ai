@@ -1,9 +1,14 @@
 import { create } from 'zustand';
 import type {
-  WorldState, AgentAction, WorldEvent, SagaLogEntry,
+  WorldState, AgentAction, WorldEvent, SagaLogEntry, Toast,
   AgentSnapshot, ColonyResources, TimeOfDay, Weather,
-  ThreatSnapshot, EntitySnapshot, TerrainType,
+  ThreatSnapshot, EntitySnapshot, TerrainType, Position,
 } from '../types/world';
+
+const TOAST_EVENT_TYPES = new Set([
+  'DRAGON_SIGHTED', 'DRAGON_DEFEATED', 'AGENT_DIED',
+  'RAID_INCOMING', 'WOLF_SPOTTED',
+]);
 
 interface GameState {
   // Latest world snapshot
@@ -21,6 +26,18 @@ interface GameState {
   worldEvents: WorldEvent[];
   sagaEntries: SagaLogEntry[];
 
+  // Latest action per agent (for action bubbles)
+  latestActionByAgent: Record<string, AgentAction>;
+
+  // Selected agent (for inspector)
+  selectedAgent: string | null;
+
+  // Movement trails (last N previous positions per agent)
+  agentTrails: Record<string, Position[]>;
+
+  // Toast notifications
+  toasts: Toast[];
+
   // Connection
   connected: boolean;
 
@@ -30,6 +47,8 @@ interface GameState {
   addWorldEvent: (e: WorldEvent) => void;
   addSagaEntry: (s: SagaLogEntry) => void;
   setConnected: (c: boolean) => void;
+  setSelectedAgent: (name: string | null) => void;
+  removeToast: (id: string) => void;
 }
 
 export const useGameStore = create<GameState>((set) => ({
@@ -46,30 +65,67 @@ export const useGameStore = create<GameState>((set) => ({
   worldEvents: [],
   sagaEntries: [],
 
+  latestActionByAgent: {},
+  selectedAgent: null,
+  agentTrails: {},
+  toasts: [],
+
   connected: false,
 
-  applyWorldState: (ws) => set({
-    grid: ws.grid,
-    agents: ws.agents,
-    entities: ws.entities,
-    colonyResources: ws.colonyResources,
-    timeOfDay: ws.timeOfDay,
-    weather: ws.weather,
-    threats: ws.threats,
-    tick: ws.tick,
+  applyWorldState: (ws) => set((state) => {
+    const newTrails: Record<string, Position[]> = {};
+    for (const agent of ws.agents) {
+      const prevAgent = state.agents.find((a) => a.name === agent.name);
+      const prevTrail = state.agentTrails[agent.name] || [];
+      if (prevAgent &&
+          (prevAgent.position.x !== agent.position.x || prevAgent.position.y !== agent.position.y)) {
+        newTrails[agent.name] = [...prevTrail.slice(-3), prevAgent.position];
+      } else {
+        newTrails[agent.name] = prevTrail;
+      }
+    }
+    return {
+      grid: ws.grid,
+      agents: ws.agents,
+      entities: ws.entities,
+      colonyResources: ws.colonyResources,
+      timeOfDay: ws.timeOfDay,
+      weather: ws.weather,
+      threats: ws.threats,
+      tick: ws.tick,
+      agentTrails: newTrails,
+    };
   }),
 
   addAgentAction: (a) => set((state) => ({
     agentActions: [...state.agentActions.slice(-49), a],
+    latestActionByAgent: { ...state.latestActionByAgent, [a.agentName]: a },
   })),
 
-  addWorldEvent: (e) => set((state) => ({
-    worldEvents: [...state.worldEvents.slice(-99), e],
-  })),
+  addWorldEvent: (e) => set((state) => {
+    const newEvents = [...state.worldEvents.slice(-99), e];
+    if (TOAST_EVENT_TYPES.has(e.eventType)) {
+      const toast: Toast = {
+        id: `${e.tick}-${e.eventType}-${Date.now()}`,
+        text: e.description,
+        severity: e.severity,
+        eventType: e.eventType,
+        tick: e.tick,
+      };
+      return { worldEvents: newEvents, toasts: [...state.toasts.slice(-4), toast] };
+    }
+    return { worldEvents: newEvents };
+  }),
 
   addSagaEntry: (s) => set((state) => ({
     sagaEntries: [...state.sagaEntries.slice(-29), s],
   })),
 
   setConnected: (c) => set({ connected: c }),
+
+  setSelectedAgent: (name) => set({ selectedAgent: name }),
+
+  removeToast: (id) => set((state) => ({
+    toasts: state.toasts.filter((t) => t.id !== id),
+  })),
 }));

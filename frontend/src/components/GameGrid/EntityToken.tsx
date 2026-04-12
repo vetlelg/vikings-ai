@@ -42,7 +42,6 @@ export const EntityToken = memo(function EntityToken({ entity }: Props) {
         fontSize: entity.type === 'WOLF' ? 18 : 14,
         pointerEvents: 'none',
       }}
-      title={entity.subtype || entity.type}
     >
       {display.symbol}
     </div>

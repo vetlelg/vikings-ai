@@ -16,7 +16,6 @@ export const DragonToken = memo(function DragonToken({ entity }: Props) {
     <div
       className={styles.dragon}
       style={{ transform: `translate(${x}px, ${y}px)` }}
-      title="Dragon"
     >
       <span className={styles.icon}>🐉</span>
     </div>

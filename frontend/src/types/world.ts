@@ -92,6 +92,15 @@ export interface WSMessage {
   payload: WorldState | AgentAction | WorldEvent | SagaLogEntry;
 }
 
+// --- Toast notification ---
+export interface Toast {
+  id: string;
+  text: string;
+  severity: Severity;
+  eventType: EventType;
+  tick: number;
+}
+
 // --- Outbound command ---
 export interface WorldCommand {
   command: 'spawn_dragon' | 'start_winter' | 'rival_raid';
