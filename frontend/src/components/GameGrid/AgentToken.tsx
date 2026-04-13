@@ -18,12 +18,14 @@ export const AgentToken = memo(
     const x = agent.position.x * CELL;
     const y = agent.position.y * CELL;
 
+    const fighting = agent.currentAction === 'FIGHT';
     const classes = [
       styles.token,
       styles[agent.role],
       agent.status === 'THINKING' ? styles.thinking : '',
       agent.status === 'DEAD' ? styles.dead : '',
       selected ? styles.selected : '',
+      fighting ? styles.fighting : '',
     ].filter(Boolean).join(' ');
 
     return (
@@ -34,11 +36,11 @@ export const AgentToken = memo(
       >
         <AgentRoleIcon role={agent.role} />
         <span className={styles.nameTag}>{agent.name}</span>
-        {latestAction && (
+        {(agent.currentAction || latestAction) && (
           <ActionBubble
-            key={`${agent.name}-${latestAction.tick}`}
-            action={latestAction.action}
-            direction={latestAction.direction}
+            key={`${agent.name}-${latestAction?.tick ?? 0}`}
+            action={agent.currentAction ?? latestAction!.action}
+            reasoning={latestAction?.reasoning}
           />
         )}
       </div>
@@ -49,6 +51,7 @@ export const AgentToken = memo(
     prev.agent.position.y === next.agent.position.y &&
     prev.agent.status === next.agent.status &&
     prev.agent.health === next.agent.health &&
+    prev.agent.currentAction === next.agent.currentAction &&
     prev.selected === next.selected &&
     prev.latestAction?.tick === next.latestAction?.tick,
 );

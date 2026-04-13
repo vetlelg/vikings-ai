@@ -1,5 +1,7 @@
+import { useMemo } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { AgentRoleIcon } from '../shared/AgentIcons';
+import type { Position, TerrainType } from '../../types/world';
 import styles from './AgentInspector.module.css';
 
 const roleColors: Record<string, string> = {
@@ -17,10 +19,77 @@ const resourceEmojis: Record<string, string> = {
   FURS: '🦊', furs: '🦊',
 };
 
+const terrainColors: Record<TerrainType, string> = {
+  GRASS: '#3a5a2c',
+  FOREST: '#1e3a1a',
+  WATER: '#1a3a5c',
+  MOUNTAIN: '#4a4a52',
+  BEACH: '#c4a44a',
+  VILLAGE: '#6b4c2a',
+};
+
+const MINIMAP_SIZE = 100;
+
+function MiniMap({ trail, current, color }: { trail: Position[]; current: Position; color: string }) {
+  const grid = useGameStore((s) => s.grid);
+
+  const canvas = useMemo(() => {
+    if (grid.length === 0) return null;
+    const rows = grid.length;
+    const cols = grid[0].length;
+    const cellW = MINIMAP_SIZE / cols;
+    const cellH = MINIMAP_SIZE / rows;
+
+    // Build terrain pixels
+    const terrainRects: React.ReactNode[] = [];
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        terrainRects.push(
+          <rect
+            key={`${x}-${y}`}
+            x={x * cellW}
+            y={y * cellH}
+            width={cellW + 0.5}
+            height={cellH + 0.5}
+            fill={terrainColors[grid[y][x]]}
+          />
+        );
+      }
+    }
+
+    // Build trail path
+    const allPoints = [...trail, current];
+    let pathD = '';
+    if (allPoints.length > 1) {
+      pathD = allPoints.map((p, i) => {
+        const px = (p.x + 0.5) * cellW;
+        const py = (p.y + 0.5) * cellH;
+        return `${i === 0 ? 'M' : 'L'}${px},${py}`;
+      }).join(' ');
+    }
+
+    const dotX = (current.x + 0.5) * cellW;
+    const dotY = (current.y + 0.5) * cellH;
+
+    return (
+      <svg width={MINIMAP_SIZE} height={MINIMAP_SIZE} className={styles.minimapSvg}>
+        {terrainRects}
+        {pathD && (
+          <path d={pathD} fill="none" stroke={color} strokeWidth={1.2} opacity={0.7} strokeLinejoin="round" />
+        )}
+        <circle cx={dotX} cy={dotY} r={2.5} fill={color} stroke="#fff" strokeWidth={0.5} />
+      </svg>
+    );
+  }, [grid, trail, current, color]);
+
+  return <div className={styles.minimap}>{canvas}</div>;
+}
+
 export function AgentInspector() {
   const selectedAgent = useGameStore((s) => s.selectedAgent);
   const agents = useGameStore((s) => s.agents);
   const latestActionByAgent = useGameStore((s) => s.latestActionByAgent);
+  const agentFullTrails = useGameStore((s) => s.agentFullTrails);
   const setSelectedAgent = useGameStore((s) => s.setSelectedAgent);
 
   if (!selectedAgent) return null;
@@ -30,13 +99,16 @@ export function AgentInspector() {
 
   const lastAction = latestActionByAgent[agent.name];
   const invEntries = Object.entries(agent.inventory).filter(([, v]) => v > 0);
+  const depositEntries = Object.entries(agent.totalDeposited).filter(([, v]) => v > 0);
+  const trail = agentFullTrails[agent.name] || [];
+  const color = roleColors[agent.role] || '#888';
 
   return (
     <div className={styles.inspector} onMouseMove={(e) => e.stopPropagation()}>
       <button className={styles.close} onClick={() => setSelectedAgent(null)}>×</button>
 
       <div className={styles.header}>
-        <div className={styles.icon} style={{ borderColor: roleColors[agent.role] }}>
+        <div className={styles.icon} style={{ borderColor: color }}>
           <AgentRoleIcon role={agent.role} />
         </div>
         <div className={styles.headerText}>
@@ -64,6 +136,23 @@ export function AgentInspector() {
         </div>
       </div>
 
+      <div className={styles.statsRow}>
+        <div className={styles.stat} title="Kills">
+          <span className={styles.statIcon}>&#9876;</span>
+          <span className={styles.statValue}>{agent.kills}</span>
+        </div>
+        <div className={styles.stat} title="Deaths">
+          <span className={styles.statIcon}>&#9760;</span>
+          <span className={styles.statValue}>{agent.deaths}</span>
+        </div>
+        {depositEntries.map(([resource, count]) => (
+          <div key={resource} className={styles.stat} title={`${resource} deposited`}>
+            <span className={styles.statIcon}>{resourceEmojis[resource] || '◆'}</span>
+            <span className={styles.statValue}>{count}</span>
+          </div>
+        ))}
+      </div>
+
       <div className={styles.section}>
         <div className={styles.label}>Position</div>
         <div className={styles.mono}>({agent.position.x}, {agent.position.y})</div>
@@ -88,12 +177,17 @@ export function AgentInspector() {
         <div className={styles.section}>
           <div className={styles.label}>Last Action</div>
           <div className={styles.action}>
-            {lastAction.action}
-            {lastAction.direction ? ` ${lastAction.direction}` : ''}
+            {agent.currentAction ?? lastAction.action}
+            {(agent.currentDirection ?? lastAction.direction) ? ` ${agent.currentDirection ?? lastAction.direction}` : ''}
           </div>
           <div className={styles.reasoning}>"{lastAction.reasoning}"</div>
         </div>
       )}
+
+      <div className={styles.section}>
+        <div className={styles.label}>Trail</div>
+        <MiniMap trail={trail} current={agent.position} color={color} />
+      </div>
     </div>
   );
 }

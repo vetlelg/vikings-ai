@@ -29,7 +29,11 @@ class ActionResolver(private val world: WorldManager) {
             ActionType.PATROL -> resolvePatrol(agent, action)
             ActionType.FLEE -> resolveFlee(agent, action)
             ActionType.SPEAK -> resolveSpeak(agent, action)
-            ActionType.IDLE -> emptyList()
+            ActionType.IDLE -> {
+                agent.currentAction = ActionType.IDLE
+                agent.currentDirection = null
+                emptyList()
+            }
         }
     }
 
@@ -38,14 +42,18 @@ class ActionResolver(private val world: WorldManager) {
         action: AgentAction
     ): List<WorldEvent> {
         val direction = action.direction ?: return emptyList()
-        val moved = world.moveAgent(agent, direction)
-        return if (moved) emptyList() else emptyList() // movement is silent in event log
+        world.moveAgent(agent, direction)
+        agent.currentAction = ActionType.MOVE
+        agent.currentDirection = direction
+        return emptyList()
     }
 
     private fun resolveGather(
         agent: com.vikingsai.engine.world.MutableAgent,
         action: AgentAction
     ): List<WorldEvent> {
+        agent.currentAction = ActionType.GATHER
+        agent.currentDirection = null
         val resource = world.tryGather(agent) ?: return emptyList()
         return listOf(WorldEvent(
             tick = world.tick,
@@ -66,9 +74,11 @@ class ActionResolver(private val world: WorldManager) {
             .minByOrNull { manhattanDist(agent.position, it.position) }
             ?: return emptyList()
 
+        agent.currentAction = ActionType.FIGHT
+
         if (manhattanDist(agent.position, target.position) > 1) {
             // Move toward target instead
-            moveToward(agent, target.position)
+            agent.currentDirection = moveToward(agent, target.position)
             return emptyList()
         }
 
@@ -84,6 +94,7 @@ class ActionResolver(private val world: WorldManager) {
         ))
 
         if (killed) {
+            agent.kills++
             world.entities.remove(target)
             val eventType = if (target.type == EntityType.DRAGON) EventType.DRAGON_DEFEATED else EventType.COMBAT
             events.add(WorldEvent(
@@ -112,6 +123,8 @@ class ActionResolver(private val world: WorldManager) {
         agent: com.vikingsai.engine.world.MutableAgent,
         action: AgentAction
     ): List<WorldEvent> {
+        agent.currentAction = ActionType.BUILD
+        agent.currentDirection = null
         // Deposit resources at village
         if (world.grid[agent.position.y][agent.position.x] == TerrainType.VILLAGE) {
             world.depositResources(agent)
@@ -134,6 +147,8 @@ class ActionResolver(private val world: WorldManager) {
         val directions = listOf("north", "south", "east", "west")
         val dir = action.direction ?: directions.random()
         world.moveAgent(agent, dir)
+        agent.currentAction = ActionType.PATROL
+        agent.currentDirection = dir
         return emptyList()
     }
 
@@ -146,11 +161,14 @@ class ActionResolver(private val world: WorldManager) {
             .filter { it.type == EntityType.WOLF || it.type == EntityType.DRAGON }
             .minByOrNull { manhattanDist(agent.position, it.position) }
 
+        agent.currentAction = ActionType.FLEE
+
         if (threat != null) {
-            moveAwayFrom(agent, threat.position)
+            agent.currentDirection = moveAwayFrom(agent, threat.position)
         } else {
             val dir = action.direction ?: "south"
             world.moveAgent(agent, dir)
+            agent.currentDirection = dir
         }
         return emptyList()
     }
@@ -159,6 +177,8 @@ class ActionResolver(private val world: WorldManager) {
         agent: com.vikingsai.engine.world.MutableAgent,
         action: AgentAction
     ): List<WorldEvent> {
+        agent.currentAction = ActionType.SPEAK
+        agent.currentDirection = null
         return listOf(WorldEvent(
             tick = world.tick,
             eventType = EventType.AGENT_SPOKE,
@@ -170,7 +190,7 @@ class ActionResolver(private val world: WorldManager) {
 
     // --- Helpers ---
 
-    private fun moveToward(agent: com.vikingsai.engine.world.MutableAgent, target: Position) {
+    private fun moveToward(agent: com.vikingsai.engine.world.MutableAgent, target: Position): String {
         val dx = target.x - agent.position.x
         val dy = target.y - agent.position.y
         val dir = if (Math.abs(dx) > Math.abs(dy)) {
@@ -179,9 +199,10 @@ class ActionResolver(private val world: WorldManager) {
             if (dy > 0) "south" else "north"
         }
         world.moveAgent(agent, dir)
+        return dir
     }
 
-    private fun moveAwayFrom(agent: com.vikingsai.engine.world.MutableAgent, threat: Position) {
+    private fun moveAwayFrom(agent: com.vikingsai.engine.world.MutableAgent, threat: Position): String {
         val dx = agent.position.x - threat.x
         val dy = agent.position.y - threat.y
         val dir = if (Math.abs(dx) > Math.abs(dy)) {
@@ -190,6 +211,7 @@ class ActionResolver(private val world: WorldManager) {
             if (dy > 0) "south" else "north"
         }
         world.moveAgent(agent, dir)
+        return dir
     }
 
     private fun manhattanDist(a: Position, b: Position): Int =

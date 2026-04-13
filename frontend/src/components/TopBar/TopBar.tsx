@@ -16,10 +16,30 @@ const weatherLabels: Record<string, string> = {
   STORM: '⛈ Storm',
 };
 
+function VoyageResource({ icon, current, target }: { icon: React.ReactNode; current: number; target: number }) {
+  const pct = Math.min(100, (current / target) * 100);
+  const done = current >= target;
+  return (
+    <div className={styles.voyageResource}>
+      <span className={styles.voyageIcon}>{icon}</span>
+      <div className={styles.voyageBar}>
+        <div
+          className={`${styles.voyageFill} ${done ? styles.voyageDone : ''}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className={`${styles.voyageCount} ${done ? styles.voyageCountDone : ''}`}>
+        {current}/{target}
+      </span>
+    </div>
+  );
+}
+
 export function TopBar() {
   const timeOfDay = useGameStore((s) => s.timeOfDay);
   const weather = useGameStore((s) => s.weather);
   const colonyResources = useGameStore((s) => s.colonyResources);
+  const voyageGoal = useGameStore((s) => s.voyageGoal);
   const agents = useGameStore((s) => s.agents);
   const connected = useGameStore((s) => s.connected);
   const tick = useGameStore((s) => s.tick);
@@ -37,11 +57,12 @@ export function TopBar() {
         <span className={styles.tick}>Tick {tick}</span>
       </div>
 
-      <div className={styles.section}>
-        <span className={styles.resource}><TimberIcon />{colonyResources.timber}</span>
+      <div className={styles.voyageSection}>
+        <span className={styles.voyageLabel}>Longship</span>
+        <VoyageResource icon={<TimberIcon />} current={colonyResources.timber} target={voyageGoal.timber} />
+        <VoyageResource icon={<IronIcon />} current={colonyResources.iron} target={voyageGoal.iron} />
+        <VoyageResource icon={<FursIcon />} current={colonyResources.furs} target={voyageGoal.furs} />
         <span className={styles.resource}><FishIcon />{colonyResources.fish}</span>
-        <span className={styles.resource}><IronIcon />{colonyResources.iron}</span>
-        <span className={styles.resource}><FursIcon />{colonyResources.furs}</span>
       </div>
 
       <div className={styles.agentStatus}>

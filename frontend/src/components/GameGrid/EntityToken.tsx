@@ -3,11 +3,6 @@ import type { EntitySnapshot } from '../../types/world';
 
 const CELL = 39;
 
-const entitySymbols: Record<string, { symbol: string; color: string }> = {
-  WOLF: { symbol: '🐺', color: '#888' },
-  RESOURCE_NODE: { symbol: '◆', color: '#d4a843' },
-};
-
 const subtypeSymbols: Record<string, { symbol: string; color: string }> = {
   timber: { symbol: '🪵', color: '#8b6914' },
   fish: { symbol: '🐟', color: '#3498db' },
@@ -24,8 +19,8 @@ export const EntityToken = memo(function EntityToken({ entity }: Props) {
   const y = entity.position.y * CELL;
 
   const display = entity.subtype
-    ? subtypeSymbols[entity.subtype] || entitySymbols[entity.type]
-    : entitySymbols[entity.type] || { symbol: '?', color: '#fff' };
+    ? subtypeSymbols[entity.subtype] || { symbol: '◆', color: '#d4a843' }
+    : { symbol: '◆', color: '#d4a843' };
 
   return (
     <div
@@ -38,8 +33,8 @@ export const EntityToken = memo(function EntityToken({ entity }: Props) {
         justifyContent: 'center',
         transform: `translate(${x}px, ${y}px)`,
         transition: 'transform var(--transition-glide)',
-        zIndex: entity.type === 'WOLF' ? 8 : 5,
-        fontSize: entity.type === 'WOLF' ? 18 : 14,
+        zIndex: 5,
+        fontSize: 14,
         pointerEvents: 'none',
       }}
     >

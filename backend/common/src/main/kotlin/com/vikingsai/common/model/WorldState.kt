@@ -11,7 +11,9 @@ data class WorldState(
     val colonyResources: ColonyResources,
     val timeOfDay: TimeOfDay,
     val weather: Weather,
-    val threats: List<ThreatSnapshot>
+    val threats: List<ThreatSnapshot>,
+    val gameStatus: GameStatus = GameStatus.IN_PROGRESS,
+    val voyageGoal: ColonyResources = ColonyResources()
 )
 
 @Serializable
@@ -21,7 +23,12 @@ data class AgentSnapshot(
     val position: Position,
     val health: Int,
     val inventory: Map<ResourceType, Int> = emptyMap(),
-    val status: AgentStatus = AgentStatus.ALIVE
+    val status: AgentStatus = AgentStatus.ALIVE,
+    val currentAction: ActionType? = null,
+    val currentDirection: String? = null,
+    val kills: Int = 0,
+    val deaths: Int = 0,
+    val totalDeposited: Map<ResourceType, Int> = emptyMap()
 )
 
 @Serializable

@@ -47,6 +47,63 @@
   font-variant-numeric: tabular-nums;
 }
 
+.voyageSection {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.voyageLabel {
+  font-family: var(--font-saga);
+  font-size: 11px;
+  color: var(--color-gold);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.voyageResource {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.voyageIcon {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+}
+
+.voyageBar {
+  width: 48px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.voyageFill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--color-gold);
+  transition: width 0.5s ease;
+}
+
+.voyageDone {
+  background: var(--color-green);
+}
+
+.voyageCount {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 36px;
+}
+
+.voyageCountDone {
+  color: var(--color-green);
+}
+
 .agentStatus {
   display: flex;
   align-items: center;

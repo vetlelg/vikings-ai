@@ -2,12 +2,12 @@ import { create } from 'zustand';
 import type {
   WorldState, AgentAction, WorldEvent, SagaLogEntry, Toast,
   AgentSnapshot, ColonyResources, TimeOfDay, Weather,
-  ThreatSnapshot, EntitySnapshot, TerrainType, Position,
+  ThreatSnapshot, EntitySnapshot, TerrainType, Position, GameStatus,
 } from '../types/world';
 
 const TOAST_EVENT_TYPES = new Set([
   'DRAGON_SIGHTED', 'DRAGON_DEFEATED', 'AGENT_DIED',
-  'RAID_INCOMING', 'WOLF_SPOTTED',
+  'RAID_INCOMING', 'WOLF_SPOTTED', 'LONGSHIP_COMPLETE',
 ]);
 
 interface GameState {
@@ -20,6 +20,8 @@ interface GameState {
   weather: Weather;
   threats: ThreatSnapshot[];
   tick: number;
+  gameStatus: GameStatus;
+  voyageGoal: ColonyResources;
 
   // Rolling logs (capped)
   agentActions: AgentAction[];
@@ -34,6 +36,9 @@ interface GameState {
 
   // Movement trails (last N previous positions per agent)
   agentTrails: Record<string, Position[]>;
+
+  // Full movement history for mini-map (capped at 500)
+  agentFullTrails: Record<string, Position[]>;
 
   // Toast notifications
   toasts: Toast[];
@@ -60,6 +65,8 @@ export const useGameStore = create<GameState>((set) => ({
   weather: 'CLEAR',
   threats: [],
   tick: 0,
+  gameStatus: 'IN_PROGRESS',
+  voyageGoal: { timber: 50, fish: 0, iron: 30, furs: 20 },
 
   agentActions: [],
   worldEvents: [],
@@ -68,20 +75,26 @@ export const useGameStore = create<GameState>((set) => ({
   latestActionByAgent: {},
   selectedAgent: null,
   agentTrails: {},
+  agentFullTrails: {},
   toasts: [],
 
   connected: false,
 
   applyWorldState: (ws) => set((state) => {
     const newTrails: Record<string, Position[]> = {};
+    const newFullTrails: Record<string, Position[]> = {};
     for (const agent of ws.agents) {
       const prevAgent = state.agents.find((a) => a.name === agent.name);
       const prevTrail = state.agentTrails[agent.name] || [];
-      if (prevAgent &&
-          (prevAgent.position.x !== agent.position.x || prevAgent.position.y !== agent.position.y)) {
-        newTrails[agent.name] = [...prevTrail.slice(-3), prevAgent.position];
+      const prevFull = state.agentFullTrails[agent.name] || [];
+      const moved = prevAgent &&
+          (prevAgent.position.x !== agent.position.x || prevAgent.position.y !== agent.position.y);
+      if (moved) {
+        newTrails[agent.name] = [...prevTrail.slice(-3), prevAgent!.position];
+        newFullTrails[agent.name] = [...prevFull.slice(-499), prevAgent!.position];
       } else {
         newTrails[agent.name] = prevTrail;
+        newFullTrails[agent.name] = prevFull;
       }
     }
     return {
@@ -93,7 +106,10 @@ export const useGameStore = create<GameState>((set) => ({
       weather: ws.weather,
       threats: ws.threats,
       tick: ws.tick,
+      gameStatus: ws.gameStatus,
+      voyageGoal: ws.voyageGoal,
       agentTrails: newTrails,
+      agentFullTrails: newFullTrails,
     };
   }),
 

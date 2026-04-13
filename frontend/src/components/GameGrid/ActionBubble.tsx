@@ -1,30 +1,29 @@
 import type { ActionType } from '../../types/world';
 import styles from './ActionBubble.module.css';
 
-const actionDisplay: Record<ActionType, { emoji: string; label: string }> = {
-  MOVE: { emoji: '🚶', label: 'Moving' },
-  GATHER: { emoji: '⛏', label: 'Gathering' },
-  FIGHT: { emoji: '⚔️', label: 'Fighting!' },
-  BUILD: { emoji: '🏗️', label: 'Building' },
-  PATROL: { emoji: '👁️', label: 'Patrolling' },
-  FLEE: { emoji: '🏃', label: 'Fleeing!' },
-  SPEAK: { emoji: '💬', label: 'Speaking' },
-  IDLE: { emoji: '💤', label: 'Idle' },
+const actionEmoji: Record<ActionType, string> = {
+  MOVE: '🚶',
+  GATHER: '⛏',
+  FIGHT: '⚔️',
+  BUILD: '🏗️',
+  PATROL: '👁️',
+  FLEE: '🏃',
+  SPEAK: '💬',
+  IDLE: '💤',
 };
 
 interface Props {
   action: ActionType;
-  direction?: string;
+  reasoning?: string;
 }
 
-export function ActionBubble({ action, direction }: Props) {
-  const display = actionDisplay[action] || { emoji: '❓', label: action };
-  const text = direction ? `${display.label} ${direction}` : display.label;
+export function ActionBubble({ action, reasoning }: Props) {
+  const emoji = actionEmoji[action] || '❓';
 
   return (
     <div className={styles.bubble}>
-      <span className={styles.emoji}>{display.emoji}</span>
-      <span className={styles.text}>{text}</span>
+      <span className={styles.emoji}>{emoji}</span>
+      {reasoning && <span className={styles.text}>{reasoning}</span>}
     </div>
   );
 }

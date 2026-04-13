@@ -66,8 +66,10 @@ class ThreatManager(
         if (world.entities.count { it.type == EntityType.WOLF } >= maxWolves) return null
 
         val walkable = MapGenerator.walkablePositions(world.grid)
+        val maxX = world.grid[0].size - 1
+        val maxY = world.grid.size - 1
         val edgePositions = walkable.filter {
-            it.x <= 2 || it.x >= 17 || it.y <= 2 || it.y >= 17
+            it.x <= 2 || it.x >= maxX - 2 || it.y <= 2 || it.y >= maxY - 2
         }
         val pos = (edgePositions.ifEmpty { walkable }).random(rng)
 
@@ -111,7 +113,8 @@ class ThreatManager(
                 newPos.y.coerceIn(0, world.grid.size - 1)
             )
             val terrain = world.grid[clampedPos.y][clampedPos.x]
-            if (terrain != TerrainType.WATER && terrain != TerrainType.MOUNTAIN) {
+            if (terrain != TerrainType.WATER && terrain != TerrainType.MOUNTAIN
+                && !world.isOccupied(clampedPos, excludeEntityId = wolf.id)) {
                 wolf.position = clampedPos
             }
 
@@ -129,7 +132,9 @@ class ThreatManager(
     private fun spawnRaid(): List<WorldEvent> {
         val events = mutableListOf<WorldEvent>()
         val walkable = MapGenerator.walkablePositions(world.grid)
-        val edgePositions = walkable.filter { it.x >= 17 || it.y >= 17 }
+        val rMaxX = world.grid[0].size - 3
+        val rMaxY = world.grid.size - 3
+        val edgePositions = walkable.filter { it.x >= rMaxX || it.y >= rMaxY }
         val pos = (edgePositions.ifEmpty { walkable }).random(rng)
 
         events.add(WorldEvent(

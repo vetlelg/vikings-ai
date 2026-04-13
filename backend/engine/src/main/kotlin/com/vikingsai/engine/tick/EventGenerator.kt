@@ -53,6 +53,21 @@ class EventGenerator(private val world: WorldManager) {
             }
         }
 
+        // Check voyage completion
+        if (world.gameStatus == GameStatus.IN_PROGRESS && world.checkVoyageComplete()) {
+            world.gameStatus = GameStatus.VICTORY
+            // Deduct the resources used to build the longship
+            world.colonyResources.timber -= WorldManager.VOYAGE_TIMBER
+            world.colonyResources.iron -= WorldManager.VOYAGE_IRON
+            world.colonyResources.furs -= WorldManager.VOYAGE_FURS
+            events.add(WorldEvent(
+                tick = world.tick,
+                eventType = EventType.LONGSHIP_COMPLETE,
+                description = "The longship is complete! The Vikings have gathered enough timber, iron, and furs to build their great vessel. The settlement celebrates!",
+                severity = Severity.CRITICAL
+            ))
+        }
+
         return events
     }
 }

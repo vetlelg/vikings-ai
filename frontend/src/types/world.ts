@@ -6,10 +6,12 @@ export type ActionType = 'MOVE' | 'GATHER' | 'FIGHT' | 'BUILD' | 'PATROL' | 'FLE
 export type AgentStatus = 'ALIVE' | 'DEAD' | 'THINKING';
 export type TimeOfDay = 'DAWN' | 'DAY' | 'DUSK' | 'NIGHT';
 export type Weather = 'CLEAR' | 'SNOW' | 'STORM';
+export type GameStatus = 'IN_PROGRESS' | 'VICTORY';
 export type EventType =
   | 'DRAGON_SIGHTED' | 'DRAGON_DEFEATED' | 'NIGHT_FALLING' | 'DAWN_BREAKING'
   | 'RAID_INCOMING' | 'WOLF_SPOTTED' | 'AGENT_DIED' | 'BUILDING_COMPLETE'
-  | 'RESOURCE_GATHERED' | 'COMBAT' | 'WEATHER_CHANGE' | 'AGENT_SPOKE';
+  | 'RESOURCE_GATHERED' | 'COMBAT' | 'WEATHER_CHANGE' | 'AGENT_SPOKE'
+  | 'LONGSHIP_COMPLETE';
 export type EntityType = 'WOLF' | 'DRAGON' | 'RESOURCE_NODE';
 export type Severity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
@@ -26,6 +28,11 @@ export interface AgentSnapshot {
   health: number;
   inventory: Record<string, number>;
   status: AgentStatus;
+  currentAction?: ActionType;
+  currentDirection?: string;
+  kills: number;
+  deaths: number;
+  totalDeposited: Record<string, number>;
 }
 
 export interface EntitySnapshot {
@@ -59,6 +66,8 @@ export interface WorldState {
   timeOfDay: TimeOfDay;
   weather: Weather;
   threats: ThreatSnapshot[];
+  gameStatus: GameStatus;
+  voyageGoal: ColonyResources;
 }
 
 export interface AgentAction {

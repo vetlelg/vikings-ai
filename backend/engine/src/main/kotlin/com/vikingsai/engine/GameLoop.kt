@@ -21,8 +21,8 @@ class GameLoop(
     private val producer: KafkaProducer<String, String>,
     private val actionConsumer: KafkaConsumer<String, String>,
     private val tickRateMs: Long,
-    gridWidth: Int = 20,
-    gridHeight: Int = 20
+    gridWidth: Int = 40,
+    gridHeight: Int = 40
 ) {
     private val log = LoggerFactory.getLogger(GameLoop::class.java)
 
@@ -73,8 +73,10 @@ class GameLoop(
                 allEvents.addAll(events)
             }
 
-            // 2. Update threats (wolves, dragon, raids)
-            allEvents.addAll(threatManager.update())
+            // 2. Update threats (wolves, dragon, raids) — skip after victory
+            if (world.gameStatus == GameStatus.IN_PROGRESS) {
+                allEvents.addAll(threatManager.update())
+            }
 
             // 3. Generate tick events (time, weather, resource spawning)
             allEvents.addAll(eventGenerator.generateTickEvents())

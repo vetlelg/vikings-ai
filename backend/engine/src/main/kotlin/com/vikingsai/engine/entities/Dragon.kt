@@ -17,7 +17,9 @@ class Dragon(private val world: WorldManager, private val rng: Random = Random.D
 
         val walkable = MapGenerator.walkablePositions(world.grid)
         // Spawn at map edge, away from village
-        val edgePositions = walkable.filter { it.x == 0 || it.x == 19 || it.y == 0 || it.y == 19 }
+        val maxX = world.grid[0].size - 1
+        val maxY = world.grid.size - 1
+        val edgePositions = walkable.filter { it.x == 0 || it.x == maxX || it.y == 0 || it.y == maxY }
         val spawnPos = (edgePositions.ifEmpty { walkable }).random(rng)
 
         world.entities.add(MutableEntity(
@@ -55,13 +57,13 @@ class Dragon(private val world: WorldManager, private val rng: Random = Random.D
             Position(dragon.position.x, dragon.position.y + dy.coerceIn(-1, 1))
         }
 
-        // Clamp and check terrain
+        // Clamp and check terrain + occupancy
         val clampedPos = Position(
             newPos.x.coerceIn(0, world.grid[0].size - 1),
             newPos.y.coerceIn(0, world.grid.size - 1)
         )
         val terrain = world.grid[clampedPos.y][clampedPos.x]
-        if (terrain != TerrainType.WATER) {
+        if (terrain != TerrainType.WATER && !world.isOccupied(clampedPos, excludeEntityId = dragon.id)) {
             dragon.position = clampedPos
         }
 

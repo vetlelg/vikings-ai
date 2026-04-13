@@ -12,10 +12,11 @@ You are $name, a Viking ${role.name.lowercase()} in a Norse settlement on a fjor
 $personality
 
 WORLD RULES:
-- You are on a 20x20 grid. Terrain types: GRASS, FOREST, WATER (impassable), MOUNTAIN (impassable), BEACH, VILLAGE.
+- You are on a grid. Terrain types: GRASS, FOREST, WATER (impassable), MOUNTAIN (impassable), BEACH, VILLAGE.
 - The colony has shared resources: timber, fish, iron, furs.
 - Threats include wolves, rival raiders, and a dragon.
 - Time cycles through DAWN, DAY, DUSK, NIGHT. Weather can be CLEAR, SNOW, or STORM.
+- COLONY GOAL: Build a longship. The colony needs 50 timber, 30 iron, and 20 furs deposited at the village. Gather resources and deposit them with the "build" action on VILLAGE tiles.
 
 RESPOND WITH EXACTLY ONE JSON ACTION. Available actions:
 - {"action":"move","direction":"north|south|east|west","reasoning":"why"}
@@ -27,6 +28,7 @@ RESPOND WITH EXACTLY ONE JSON ACTION. Available actions:
 - {"action":"speak","reasoning":"what you say"} — speak to the settlement
 - {"action":"idle","reasoning":"why"}
 
+Keep the "reasoning" field SHORT — at most 8 words, like a quick thought.
 RESPOND WITH ONLY THE JSON. No markdown, no explanation outside the JSON.
         """.trimIndent()
     }
@@ -53,6 +55,7 @@ RESPOND WITH ONLY THE JSON. No markdown, no explanation outside the JSON.
         sb.appendLine("=== WORLD ===")
         sb.appendLine("Tick: ${worldState.tick} | Time: ${worldState.timeOfDay} | Weather: ${worldState.weather}")
         sb.appendLine("Colony resources: timber=${worldState.colonyResources.timber}, fish=${worldState.colonyResources.fish}, iron=${worldState.colonyResources.iron}, furs=${worldState.colonyResources.furs}")
+        sb.appendLine("Longship progress: ${worldState.colonyResources.timber}/${worldState.voyageGoal.timber} timber, ${worldState.colonyResources.iron}/${worldState.voyageGoal.iron} iron, ${worldState.colonyResources.furs}/${worldState.voyageGoal.furs} furs")
         sb.appendLine()
 
         // Nearby terrain (5x5 around agent)
@@ -62,7 +65,7 @@ RESPOND WITH ONLY THE JSON. No markdown, no explanation outside the JSON.
             for (dx in -2..2) {
                 val nx = agent.position.x + dx
                 val ny = agent.position.y + dy
-                if (nx in 0..19 && ny in 0..19) {
+                if (nx in 0 until worldState.grid[0].size && ny in 0 until worldState.grid.size) {
                     val t = worldState.grid[ny][nx].name.take(3)
                     row.append(if (dx == 0 && dy == 0) "[$t]" else " $t ")
                 } else {
@@ -123,6 +126,7 @@ RESPOND WITH ONLY THE JSON. No markdown, no explanation outside the JSON.
         sb.appendLine("=== WORLD STATE ===")
         sb.appendLine("Tick: ${worldState.tick} | Time: ${worldState.timeOfDay} | Weather: ${worldState.weather}")
         sb.appendLine("Colony: timber=${worldState.colonyResources.timber}, fish=${worldState.colonyResources.fish}, iron=${worldState.colonyResources.iron}, furs=${worldState.colonyResources.furs}")
+        sb.appendLine("Longship progress: ${worldState.colonyResources.timber}/${worldState.voyageGoal.timber} timber, ${worldState.colonyResources.iron}/${worldState.voyageGoal.iron} iron, ${worldState.colonyResources.furs}/${worldState.voyageGoal.furs} furs")
         sb.appendLine()
 
         sb.appendLine("=== VIKINGS ===")

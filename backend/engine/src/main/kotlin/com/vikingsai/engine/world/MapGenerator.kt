@@ -6,24 +6,25 @@ import com.vikingsai.common.model.TerrainType.*
 import kotlin.random.Random
 
 /**
- * Generates a 20x20 Viking coastline map.
+ * Generates a Viking coastline map at any size.
  *
  * Layout (x = col, y = row, origin top-left):
- *   - West edge (x=0..2): fjord (water) with irregular coastline
- *   - x=2..4: beach strip along the water's edge
- *   - North (y=0..3): mountain range
- *   - Center (x=8..12, y=8..12): village clearing
+ *   - West edge: fjord (water) with irregular coastline
+ *   - Adjacent to water: beach strip
+ *   - North: mountain range
+ *   - Center: village clearing
  *   - Scattered: forest clusters and grass plains
  */
 object MapGenerator {
 
-    fun generate(width: Int = 20, height: Int = 20, seed: Long = 42): List<List<TerrainType>> {
+    fun generate(width: Int = 40, height: Int = 40, seed: Long = 42): List<List<TerrainType>> {
         val rng = Random(seed)
         val grid = Array(height) { Array(width) { GRASS } }
 
         // 1. Fjord — water along the west edge with irregular coastline
         for (y in 0 until height) {
-            val waterWidth = 2 + (Math.sin(y * 0.7 + seed.toDouble() * 0.1) * 1.2).toInt().coerceIn(0, 2)
+            val baseWidth = (3 * width) / 20
+            val waterWidth = baseWidth + (Math.sin(y * 0.7 + seed.toDouble() * 0.1) * 1.2).toInt().coerceIn(0, 2)
             for (x in 0 until waterWidth.coerceAtMost(width)) {
                 grid[y][x] = WATER
             }
@@ -40,46 +41,44 @@ object MapGenerator {
             }
         }
 
-        // 3. Mountain range along the north
-        for (y in 0..3) {
+        // 3. Mountain range along the north (scales with height)
+        val mountainRows = (height * 4) / 20
+        for (y in 0 until mountainRows) {
             for (x in 0 until width) {
                 if (grid[y][x] != WATER && grid[y][x] != BEACH) {
-                    val isMountain = when (y) {
-                        0 -> x > 4 && rng.nextFloat() < 0.8f
-                        1 -> x > 3 && rng.nextFloat() < 0.7f
-                        2 -> x > 5 && rng.nextFloat() < 0.4f
-                        3 -> x > 6 && rng.nextFloat() < 0.2f
-                        else -> false
-                    }
-                    if (isMountain) grid[y][x] = MOUNTAIN
+                    val fraction = y.toFloat() / mountainRows
+                    val minX = (width * (3 + y)) / 20
+                    val chance = 0.85f - fraction * 0.6f
+                    if (x > minX && rng.nextFloat() < chance) grid[y][x] = MOUNTAIN
                 }
             }
         }
 
         // 4. Village clearing in the center
-        for (y in 8..12) {
-            for (x in 8..12) {
-                if (grid[y][x] == GRASS) {
+        val villageRadius = 2 + width / 20  // grows slightly with map size
+        val cx = width / 2
+        val cy = height / 2
+        for (y in (cy - villageRadius)..(cy + villageRadius)) {
+            for (x in (cx - villageRadius)..(cx + villageRadius)) {
+                if (x in 0 until width && y in 0 until height && grid[y][x] == GRASS) {
                     grid[y][x] = VILLAGE
                 }
             }
         }
 
-        // 5. Forest clusters scattered around
-        val forestSeeds = listOf(
-            Position(5, 6), Position(14, 5), Position(6, 14),
-            Position(16, 10), Position(12, 16), Position(4, 10),
-            Position(17, 3), Position(15, 15), Position(7, 18)
-        )
-        for (center in forestSeeds) {
-            val radius = rng.nextInt(1, 4)
+        // 5. Forest clusters scattered proportionally
+        val forestCount = (width * height) / 40
+        for (i in 0 until forestCount) {
+            val fx = rng.nextInt(4, width - 2)
+            val fy = rng.nextInt(mountainRows + 1, height - 1)
+            val radius = rng.nextInt(1, 2 + width / 20)
             for (dy in -radius..radius) {
                 for (dx in -radius..radius) {
-                    val nx = center.x + dx
-                    val ny = center.y + dy
+                    val nx = fx + dx
+                    val ny = fy + dy
                     if (nx in 0 until width && ny in 0 until height
                         && grid[ny][nx] == GRASS
-                        && rng.nextFloat() < 0.7f
+                        && rng.nextFloat() < 0.65f
                     ) {
                         grid[ny][nx] = FOREST
                     }

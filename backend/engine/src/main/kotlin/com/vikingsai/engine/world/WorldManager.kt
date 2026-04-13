@@ -16,6 +16,7 @@ class WorldManager(
         private set
     var weather: Weather = Weather.CLEAR
         private set
+    var gameStatus: GameStatus = GameStatus.IN_PROGRESS
 
     val agents = mutableListOf<MutableAgent>()
     val entities = mutableListOf<MutableEntity>()
@@ -23,6 +24,19 @@ class WorldManager(
 
     private val width get() = grid[0].size
     private val height get() = grid.size
+
+    companion object {
+        const val VOYAGE_TIMBER = 50
+        const val VOYAGE_IRON = 30
+        const val VOYAGE_FURS = 20
+    }
+
+    val voyageGoal = ColonyResources(timber = VOYAGE_TIMBER, fish = 0, iron = VOYAGE_IRON, furs = VOYAGE_FURS)
+
+    fun checkVoyageComplete(): Boolean =
+        colonyResources.timber >= VOYAGE_TIMBER &&
+        colonyResources.iron >= VOYAGE_IRON &&
+        colonyResources.furs >= VOYAGE_FURS
 
     fun advanceTick() {
         tick++
@@ -62,6 +76,14 @@ class WorldManager(
         return null
     }
 
+    // --- Occupancy check ---
+
+    fun isOccupied(pos: Position, excludeAgentName: String? = null, excludeEntityId: String? = null): Boolean {
+        if (agents.any { it.status == AgentStatus.ALIVE && it.position == pos && it.name != excludeAgentName }) return true
+        if (entities.any { it.position == pos && it.id != excludeEntityId }) return true
+        return false
+    }
+
     // --- Agent movement ---
 
     fun moveAgent(agent: MutableAgent, direction: String): Boolean {
@@ -74,9 +96,11 @@ class WorldManager(
         }
         val newX = (agent.position.x + dx).coerceIn(0, width - 1)
         val newY = (agent.position.y + dy).coerceIn(0, height - 1)
+        val newPos = Position(newX, newY)
         val terrain = grid[newY][newX]
         if (terrain == TerrainType.WATER || terrain == TerrainType.MOUNTAIN) return false
-        agent.position = Position(newX, newY)
+        if (isOccupied(newPos, excludeAgentName = agent.name)) return false
+        agent.position = newPos
         return true
     }
 
@@ -119,6 +143,7 @@ class WorldManager(
                 ResourceType.IRON -> colonyResources.iron += amount
                 ResourceType.FURS -> colonyResources.furs += amount
             }
+            agent.totalDeposited[resource] = (agent.totalDeposited[resource] ?: 0) + amount
         }
         agent.inventory.clear()
     }
@@ -162,6 +187,7 @@ class WorldManager(
                         agent.health = 100
                         agent.status = AgentStatus.ALIVE
                         agent.inventory.clear()
+                        agent.deaths++
                     }
                 }
                 continue
@@ -233,7 +259,9 @@ class WorldManager(
                     type = it.type.name.lowercase(),
                     position = it.position,
                     severity = if (it.type == EntityType.DRAGON) Severity.CRITICAL else Severity.MEDIUM
-                )}
+                )},
+            gameStatus = gameStatus,
+            voyageGoal = voyageGoal
         )
     }
 }
@@ -246,7 +274,12 @@ data class MutableAgent(
     var position: Position,
     var health: Int = 100,
     val inventory: MutableMap<ResourceType, Int> = mutableMapOf(),
-    var status: AgentStatus = AgentStatus.ALIVE
+    var status: AgentStatus = AgentStatus.ALIVE,
+    var currentAction: ActionType? = null,
+    var currentDirection: String? = null,
+    var kills: Int = 0,
+    var deaths: Int = 0,
+    val totalDeposited: MutableMap<ResourceType, Int> = mutableMapOf()
 ) {
     fun toSnapshot() = AgentSnapshot(
         name = name,
@@ -254,7 +287,12 @@ data class MutableAgent(
         position = position,
         health = health,
         inventory = inventory.toMap(),
-        status = status
+        status = status,
+        currentAction = currentAction,
+        currentDirection = currentDirection,
+        kills = kills,
+        deaths = deaths,
+        totalDeposited = totalDeposited.toMap()
     )
 }
 

@@ -32,6 +32,10 @@
   filter: grayscale(100%);
 }
 
+.fighting {
+  animation: combat-flash 0.4s ease-in-out infinite;
+}
+
 .nameTag {
   position: absolute;
   bottom: -12px;

@@ -1,18 +1,10 @@
 .gridWrapper {
   position: relative;
-  width: calc(20 * var(--cell-size) + 19 * var(--grid-gap));
-  height: calc(20 * var(--cell-size) + 19 * var(--grid-gap));
-  margin: auto;
-  box-shadow: 0 0 40px rgba(212, 168, 67, 0.08);
-  border: 1px solid rgba(212, 168, 67, 0.2);
-  border-radius: 4px;
   flex-shrink: 0;
 }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(20, var(--cell-size));
-  grid-template-rows: repeat(20, var(--cell-size));
   gap: var(--grid-gap);
 }
 
@@ -23,6 +15,20 @@
   width: 100%;
   height: 100%;
   pointer-events: none;
+}
+
+.viewport {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  cursor: grab;
+  border: 1px solid rgba(212, 168, 67, 0.2);
+  border-radius: 4px;
+  box-shadow: 0 0 40px rgba(212, 168, 67, 0.08);
+}
+
+.viewport:active {
+  cursor: grabbing;
 }
 
 .loading {
