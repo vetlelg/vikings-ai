@@ -3,18 +3,14 @@
   top: -26px;
   left: 50%;
   transform: translateX(-50%);
-  max-width: 180px;
   background: rgba(15, 17, 24, 0.92);
   border: 1px solid rgba(212, 168, 67, 0.4);
   border-radius: 10px;
   padding: 2px 8px;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   display: flex;
   align-items: center;
   gap: 4px;
-  animation: action-bubble 5s ease forwards;
   pointer-events: none;
   z-index: 50;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
@@ -32,6 +28,4 @@
   font-family: var(--font-ui);
   font-style: italic;
   line-height: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }

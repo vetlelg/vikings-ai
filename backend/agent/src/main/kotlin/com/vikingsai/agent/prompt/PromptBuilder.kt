@@ -28,7 +28,7 @@ RESPOND WITH EXACTLY ONE JSON ACTION. Available actions:
 - {"action":"speak","reasoning":"what you say"} — speak to the settlement
 - {"action":"idle","reasoning":"why"}
 
-Keep the "reasoning" field SHORT — at most 8 words, like a quick thought.
+Keep the "reasoning" field SHORT — at most 10 words, like a quick thought.
 RESPOND WITH ONLY THE JSON. No markdown, no explanation outside the JSON.
         """.trimIndent()
     }
@@ -36,7 +36,8 @@ RESPOND WITH ONLY THE JSON. No markdown, no explanation outside the JSON.
     fun buildUserPrompt(
         name: String,
         worldState: WorldState,
-        recentEvents: List<WorldEvent>
+        recentEvents: List<WorldEvent>,
+        recentActions: List<AgentAction> = emptyList()
     ): String {
         val agent = worldState.agents.find { it.name == name }
             ?: return "You are not in the world. Wait."
@@ -51,6 +52,15 @@ RESPOND WITH ONLY THE JSON. No markdown, no explanation outside the JSON.
         sb.appendLine("Standing on: ${worldState.grid[agent.position.y][agent.position.x]}")
         sb.appendLine()
 
+        // Recent actions (short-term memory)
+        if (recentActions.isNotEmpty()) {
+            sb.appendLine("=== YOUR RECENT ACTIONS ===")
+            for (a in recentActions) {
+                sb.appendLine("Tick ${a.tick}: ${a.action}${if (a.direction != null) " ${a.direction}" else ""} — ${a.reasoning}")
+            }
+            sb.appendLine()
+        }
+
         // World conditions
         sb.appendLine("=== WORLD ===")
         sb.appendLine("Tick: ${worldState.tick} | Time: ${worldState.timeOfDay} | Weather: ${worldState.weather}")
@@ -58,14 +68,36 @@ RESPOND WITH ONLY THE JSON. No markdown, no explanation outside the JSON.
         sb.appendLine("Longship progress: ${worldState.colonyResources.timber}/${worldState.voyageGoal.timber} timber, ${worldState.colonyResources.iron}/${worldState.voyageGoal.iron} iron, ${worldState.colonyResources.furs}/${worldState.voyageGoal.furs} furs")
         sb.appendLine()
 
-        // Nearby terrain (5x5 around agent)
-        sb.appendLine("=== NEARBY TERRAIN (5x5) ===")
-        for (dy in -2..2) {
+        // Key landmarks — direction and distance to important locations
+        sb.appendLine("=== KEY LOCATIONS ===")
+        val width = worldState.grid[0].size
+        val height = worldState.grid.size
+        val villageCenterX = width / 2
+        val villageCenterY = height / 2
+        sb.appendLine("Village center: (${villageCenterX}, ${villageCenterY}) ${directionTo(agent.position, Position(villageCenterX, villageCenterY))}")
+        findNearest(agent.position, worldState.grid, TerrainType.FOREST)?.let {
+            sb.appendLine("Nearest forest: (${it.x}, ${it.y}) ${directionTo(agent.position, it)}")
+        }
+        findNearest(agent.position, worldState.grid, TerrainType.BEACH)?.let {
+            sb.appendLine("Nearest beach: (${it.x}, ${it.y}) ${directionTo(agent.position, it)}")
+        }
+        // Nearest resource node
+        worldState.entities.filter { it.type == EntityType.RESOURCE_NODE }
+            .minByOrNull { abs(it.position.x - agent.position.x) + abs(it.position.y - agent.position.y) }
+            ?.let {
+                val dist = abs(it.position.x - agent.position.x) + abs(it.position.y - agent.position.y)
+                sb.appendLine("Nearest resource node: ${it.subtype ?: "unknown"} at (${it.position.x}, ${it.position.y}) ${directionTo(agent.position, it.position)}")
+            }
+        sb.appendLine()
+
+        // Nearby terrain (11x11 around agent)
+        sb.appendLine("=== NEARBY TERRAIN (11x11) ===")
+        for (dy in -5..5) {
             val row = StringBuilder()
-            for (dx in -2..2) {
+            for (dx in -5..5) {
                 val nx = agent.position.x + dx
                 val ny = agent.position.y + dy
-                if (nx in 0 until worldState.grid[0].size && ny in 0 until worldState.grid.size) {
+                if (nx in 0 until width && ny in 0 until height) {
                     val t = worldState.grid[ny][nx].name.take(3)
                     row.append(if (dx == 0 && dy == 0) "[$t]" else " $t ")
                 } else {
@@ -84,9 +116,9 @@ RESPOND WITH ONLY THE JSON. No markdown, no explanation outside the JSON.
         }
         sb.appendLine()
 
-        // Nearby entities
+        // Nearby entities (expanded range)
         val nearbyEntities = worldState.entities.filter { e ->
-            abs(e.position.x - agent.position.x) + abs(e.position.y - agent.position.y) <= 8
+            abs(e.position.x - agent.position.x) + abs(e.position.y - agent.position.y) <= 15
         }
         if (nearbyEntities.isNotEmpty()) {
             sb.appendLine("=== NEARBY ENTITIES ===")
@@ -116,6 +148,34 @@ RESPOND WITH ONLY THE JSON. No markdown, no explanation outside the JSON.
         }
 
         return sb.toString()
+    }
+
+    private fun directionTo(from: Position, to: Position): String {
+        val dx = to.x - from.x
+        val dy = to.y - from.y
+        val dist = abs(dx) + abs(dy)
+        if (dist == 0) return "dist=0 (here)"
+        val dirs = mutableListOf<String>()
+        if (dy < 0) dirs.add("north") else if (dy > 0) dirs.add("south")
+        if (dx < 0) dirs.add("west") else if (dx > 0) dirs.add("east")
+        return "dist=$dist ${dirs.joinToString("-")}"
+    }
+
+    private fun findNearest(from: Position, grid: List<List<TerrainType>>, terrain: TerrainType): Position? {
+        var best: Position? = null
+        var bestDist = Int.MAX_VALUE
+        for (y in grid.indices) {
+            for (x in grid[y].indices) {
+                if (grid[y][x] == terrain) {
+                    val d = abs(x - from.x) + abs(y - from.y)
+                    if (d < bestDist) {
+                        bestDist = d
+                        best = Position(x, y)
+                    }
+                }
+            }
+        }
+        return best
     }
 
     fun buildSkaldUserPrompt(

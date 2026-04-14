@@ -44,6 +44,7 @@ open class BaseAgent(
 
     private var latestWorldState: WorldState? = null
     private val recentEvents = mutableListOf<WorldEvent>()
+    private val myRecentActions = mutableListOf<AgentAction>()
     private var lastProcessedTick = -1
 
     suspend fun run() {
@@ -112,7 +113,7 @@ open class BaseAgent(
 
     protected open suspend fun processTickAction(worldState: WorldState) {
         val systemPrompt = PromptBuilder.buildSystemPrompt(name, role, personality)
-        val userPrompt = PromptBuilder.buildUserPrompt(name, worldState, recentEvents)
+        val userPrompt = PromptBuilder.buildUserPrompt(name, worldState, recentEvents, myRecentActions)
 
         // Rate limit LLM calls
         rateLimiter?.let { withContext(Dispatchers.IO) { it.acquire() } }
@@ -125,6 +126,10 @@ open class BaseAgent(
                 withContext(Dispatchers.IO) {
                     producer.send(ProducerRecord(Topics.AGENT_ACTIONS, name, json))
                 }
+                // Track recent actions for short-term memory
+                myRecentActions.add(action)
+                if (myRecentActions.size > 5) myRecentActions.removeFirst()
+
                 log.info("[Tick ${worldState.tick}] ${action.action}${if (action.direction != null) " ${action.direction}" else ""} — ${action.reasoning.take(60)}")
             }
         } finally {
