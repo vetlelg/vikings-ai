@@ -36,9 +36,47 @@
   animation: combat-flash 0.4s ease-in-out infinite;
 }
 
+.gathering {
+  /* marker class — animation is on .gatherIcon child to avoid transform conflict */
+}
+
+.gatherIcon {
+  display: inline-flex;
+  animation: gather-swing 0.6s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+.lowHealth {
+  animation: low-health-pulse 1s ease-in-out infinite;
+}
+
+/* When fighting AND low health, fighting animation takes priority */
+.fighting.lowHealth {
+  animation: combat-flash 0.4s ease-in-out infinite;
+}
+
+.healthBar {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28px;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 2px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.healthFill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.5s ease, background-color 0.5s ease;
+}
+
 .nameTag {
   position: absolute;
-  bottom: -12px;
+  bottom: -14px;
   left: 50%;
   transform: translateX(-50%);
   font-size: 9px;

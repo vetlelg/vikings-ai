@@ -31,7 +31,7 @@ class KafkaForwarder(
                 groupId = "bridge-${System.currentTimeMillis()}",
                 topics = listOf(
                     Topics.WORLD_STATE,
-                    Topics.AGENT_ACTIONS,
+                    Topics.AGENT_TASKS,
                     Topics.WORLD_EVENTS,
                     Topics.SAGA_LOG
                 ),

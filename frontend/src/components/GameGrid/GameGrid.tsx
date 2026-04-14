@@ -35,7 +35,7 @@ export function GameGrid() {
   const connected = useGameStore((s) => s.connected);
   const selectedAgent = useGameStore((s) => s.selectedAgent);
   const setSelectedAgent = useGameStore((s) => s.setSelectedAgent);
-  const latestActionByAgent = useGameStore((s) => s.latestActionByAgent);
+  const latestTaskByAgent = useGameStore((s) => s.latestTaskByAgent);
   const agentTrails = useGameStore((s) => s.agentTrails);
 
   const rows = grid.length;
@@ -153,7 +153,7 @@ export function GameGrid() {
             <AgentToken
               key={a.name}
               agent={a}
-              latestAction={latestActionByAgent[a.name]}
+              latestTask={latestTaskByAgent[a.name]}
               selected={selectedAgent === a.name}
               onClick={() => setSelectedAgent(selectedAgent === a.name ? null : a.name)}
             />

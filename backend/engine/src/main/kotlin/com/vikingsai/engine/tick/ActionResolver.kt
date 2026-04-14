@@ -26,7 +26,6 @@ class ActionResolver(private val world: WorldManager) {
             ActionType.GATHER -> resolveGather(agent, action)
             ActionType.FIGHT -> resolveFight(agent, action)
             ActionType.BUILD -> resolveBuild(agent, action)
-            ActionType.PATROL -> resolvePatrol(agent, action)
             ActionType.FLEE -> resolveFlee(agent, action)
             ActionType.SPEAK -> resolveSpeak(agent, action)
             ActionType.IDLE -> {
@@ -42,9 +41,19 @@ class ActionResolver(private val world: WorldManager) {
         action: AgentAction
     ): List<WorldEvent> {
         val direction = action.direction ?: return emptyList()
-        world.moveAgent(agent, direction)
         agent.currentAction = ActionType.MOVE
-        agent.currentDirection = direction
+        if (world.moveAgent(agent, direction)) {
+            agent.currentDirection = direction
+        } else {
+            // Requested direction blocked — try perpendicular directions
+            val alternates = when (direction.lowercase()) {
+                "north", "south" -> listOf("east", "west")
+                "east", "west" -> listOf("north", "south")
+                else -> emptyList()
+            }
+            val moved = alternates.firstOrNull { world.moveAgent(agent, it) }
+            agent.currentDirection = moved ?: direction
+        }
         return emptyList()
     }
 
@@ -54,14 +63,25 @@ class ActionResolver(private val world: WorldManager) {
     ): List<WorldEvent> {
         agent.currentAction = ActionType.GATHER
         agent.currentDirection = null
-        val resource = world.tryGather(agent) ?: return emptyList()
-        return listOf(WorldEvent(
-            tick = world.tick,
-            eventType = EventType.RESOURCE_GATHERED,
-            description = "${agent.name} gathered ${resource.name.lowercase()}",
-            severity = Severity.LOW,
-            affectedPositions = listOf(agent.position)
-        ))
+        val resource = world.tryGather(agent)
+        if (resource != null) {
+            return listOf(WorldEvent(
+                tick = world.tick,
+                eventType = EventType.RESOURCE_GATHERED,
+                description = "${agent.name} gathered ${resource.name.lowercase()}",
+                severity = Severity.LOW,
+                affectedPositions = listOf(agent.position)
+            ))
+        }
+        // No adjacent resource — move toward the nearest one instead of standing still
+        val nearestSource = world.entities
+            .filter { it.type == EntityType.RESOURCE_NODE && it.health > 0 }
+            .minByOrNull { manhattanDist(agent.position, it.position) }
+        if (nearestSource != null) {
+            agent.currentAction = ActionType.MOVE
+            agent.currentDirection = moveToward(agent, nearestSource.position)
+        }
+        return emptyList()
     }
 
     private fun resolveFight(
@@ -139,18 +159,7 @@ class ActionResolver(private val world: WorldManager) {
         return emptyList()
     }
 
-    private fun resolvePatrol(
-        agent: com.vikingsai.engine.world.MutableAgent,
-        action: AgentAction
-    ): List<WorldEvent> {
-        // Patrol: move in a random direction
-        val directions = listOf("north", "south", "east", "west")
-        val dir = action.direction ?: directions.random()
-        world.moveAgent(agent, dir)
-        agent.currentAction = ActionType.PATROL
-        agent.currentDirection = dir
-        return emptyList()
-    }
+
 
     private fun resolveFlee(
         agent: com.vikingsai.engine.world.MutableAgent,
@@ -193,25 +202,51 @@ class ActionResolver(private val world: WorldManager) {
     private fun moveToward(agent: com.vikingsai.engine.world.MutableAgent, target: Position): String {
         val dx = target.x - agent.position.x
         val dy = target.y - agent.position.y
-        val dir = if (Math.abs(dx) > Math.abs(dy)) {
-            if (dx > 0) "east" else "west"
+
+        // Try primary axis first, then secondary axis as fallback
+        val primary = if (Math.abs(dx) >= Math.abs(dy)) {
+            if (dx > 0) "east" else if (dx < 0) "west" else null
         } else {
-            if (dy > 0) "south" else "north"
+            if (dy > 0) "south" else if (dy < 0) "north" else null
         }
-        world.moveAgent(agent, dir)
-        return dir
+        val secondary = if (Math.abs(dx) >= Math.abs(dy)) {
+            if (dy > 0) "south" else if (dy < 0) "north" else null
+        } else {
+            if (dx > 0) "east" else if (dx < 0) "west" else null
+        }
+
+        if (primary != null && world.moveAgent(agent, primary)) return primary
+        if (secondary != null && world.moveAgent(agent, secondary)) return secondary
+
+        // Both blocked — try any walkable direction
+        for (dir in listOf("north", "south", "east", "west")) {
+            if (world.moveAgent(agent, dir)) return dir
+        }
+        return primary ?: "north"
     }
 
     private fun moveAwayFrom(agent: com.vikingsai.engine.world.MutableAgent, threat: Position): String {
         val dx = agent.position.x - threat.x
         val dy = agent.position.y - threat.y
-        val dir = if (Math.abs(dx) > Math.abs(dy)) {
-            if (dx > 0) "east" else "west"
+
+        val primary = if (Math.abs(dx) >= Math.abs(dy)) {
+            if (dx > 0) "east" else if (dx < 0) "west" else null
         } else {
-            if (dy > 0) "south" else "north"
+            if (dy > 0) "south" else if (dy < 0) "north" else null
         }
-        world.moveAgent(agent, dir)
-        return dir
+        val secondary = if (Math.abs(dx) >= Math.abs(dy)) {
+            if (dy > 0) "south" else if (dy < 0) "north" else null
+        } else {
+            if (dx > 0) "east" else if (dx < 0) "west" else null
+        }
+
+        if (primary != null && world.moveAgent(agent, primary)) return primary
+        if (secondary != null && world.moveAgent(agent, secondary)) return secondary
+
+        for (dir in listOf("north", "south", "east", "west")) {
+            if (world.moveAgent(agent, dir)) return dir
+        }
+        return primary ?: "south"
     }
 
     private fun manhattanDist(a: Position, b: Position): Int =

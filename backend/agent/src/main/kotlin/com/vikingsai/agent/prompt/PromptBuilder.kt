@@ -12,23 +12,29 @@ You are $name, a Viking ${role.name.lowercase()} in a Norse settlement on a fjor
 $personality
 
 WORLD RULES:
-- You are on a grid. Terrain types: GRASS, FOREST, WATER (impassable), MOUNTAIN (impassable), BEACH, VILLAGE.
+- You are on a grid. Terrain types: GRASS, FOREST, WATER (impassable), MOUNTAIN, BEACH, VILLAGE.
 - The colony has shared resources: timber, fish, iron, furs.
+- Resource sources: trees (timber), mines (iron), fishing spots (fish), hunting grounds (furs). They deplete over time.
 - Threats include wolves, rival raiders, and a dragon.
 - Time cycles through DAWN, DAY, DUSK, NIGHT. Weather can be CLEAR, SNOW, or STORM.
-- COLONY GOAL: Build a longship. The colony needs 50 timber, 30 iron, and 20 furs deposited at the village. Gather resources and deposit them with the "build" action on VILLAGE tiles.
+- COLONY GOAL: Build a longship. The colony needs 50 timber, 30 iron, and 20 furs deposited at the village.
 
-RESPOND WITH EXACTLY ONE JSON ACTION. Available actions:
-- {"action":"move","direction":"north|south|east|west","reasoning":"why"}
-- {"action":"gather","reasoning":"why"} — pick up resources at your location (works on FOREST for timber, or resource nodes)
-- {"action":"fight","reasoning":"why"} — attack nearest threat
-- {"action":"build","reasoning":"why"} — deposit resources at VILLAGE
-- {"action":"patrol","direction":"north|south|east|west","reasoning":"why"} — patrol an area
-- {"action":"flee","direction":"north|south|east|west","reasoning":"why"} — run from danger
-- {"action":"speak","reasoning":"what you say"} — speak to the settlement
-- {"action":"idle","reasoning":"why"}
+YOU ASSIGN TASKS, NOT INDIVIDUAL ACTIONS. The engine will execute your task mechanically over multiple ticks — pathfinding, gathering, returning. You only need to decide WHAT to do, not HOW.
 
-Keep the "reasoning" field SHORT — at most 10 words, like a quick thought.
+RESPOND WITH EXACTLY ONE JSON TASK. Available tasks:
+- {"taskType":"gather","targetResourceType":"TIMBER|IRON|FISH|FURS","reasoning":"why"} — move to nearest source and gather until inventory full
+- {"taskType":"deposit","reasoning":"why"} — return to village and deposit all resources
+- {"taskType":"fight","reasoning":"why"} — move toward nearest threat and attack
+- {"taskType":"flee","reasoning":"why"} — run away from danger toward safety
+- {"taskType":"idle","reasoning":"why"} — rest and observe
+
+PRIORITY RULES (follow in order):
+1. SURVIVE: If a threat is nearby (dist <= 4), fighters should FIGHT, others should FLEE.
+2. HEAL: If health is below 30, choose IDLE to rest.
+3. DEPOSIT: If carrying resources, choose DEPOSIT.
+4. GATHER: Follow your role's resource priorities.
+
+Keep "reasoning" SHORT — at most 10 words.
 RESPOND WITH ONLY THE JSON. No markdown, no explanation outside the JSON.
         """.trimIndent()
     }
@@ -36,8 +42,7 @@ RESPOND WITH ONLY THE JSON. No markdown, no explanation outside the JSON.
     fun buildUserPrompt(
         name: String,
         worldState: WorldState,
-        recentEvents: List<WorldEvent>,
-        recentActions: List<AgentAction> = emptyList()
+        recentEvents: List<WorldEvent>
     ): String {
         val agent = worldState.agents.find { it.name == name }
             ?: return "You are not in the world. Wait."
@@ -50,16 +55,12 @@ RESPOND WITH ONLY THE JSON. No markdown, no explanation outside the JSON.
         sb.appendLine("Health: ${agent.health}/100")
         sb.appendLine("Inventory: ${if (agent.inventory.isEmpty()) "empty" else agent.inventory.entries.joinToString { "${it.value} ${it.key.name.lowercase()}" }}")
         sb.appendLine("Standing on: ${worldState.grid[agent.position.y][agent.position.x]}")
-        sb.appendLine()
-
-        // Recent actions (short-term memory)
-        if (recentActions.isNotEmpty()) {
-            sb.appendLine("=== YOUR RECENT ACTIONS ===")
-            for (a in recentActions) {
-                sb.appendLine("Tick ${a.tick}: ${a.action}${if (a.direction != null) " ${a.direction}" else ""} — ${a.reasoning}")
-            }
-            sb.appendLine()
+        if (agent.currentTaskType != null) {
+            sb.appendLine("Current task: ${agent.currentTaskType}${if (agent.currentTaskReasoning != null) " — ${agent.currentTaskReasoning}" else ""}")
+        } else {
+            sb.appendLine("Current task: NONE — you need a new task!")
         }
+        sb.appendLine()
 
         // World conditions
         sb.appendLine("=== WORLD ===")
@@ -81,12 +82,11 @@ RESPOND WITH ONLY THE JSON. No markdown, no explanation outside the JSON.
         findNearest(agent.position, worldState.grid, TerrainType.BEACH)?.let {
             sb.appendLine("Nearest beach: (${it.x}, ${it.y}) ${directionTo(agent.position, it)}")
         }
-        // Nearest resource node
-        worldState.entities.filter { it.type == EntityType.RESOURCE_NODE }
+        // Nearest resource source
+        worldState.entities.filter { it.type == EntityType.RESOURCE_NODE && it.remaining > 0 }
             .minByOrNull { abs(it.position.x - agent.position.x) + abs(it.position.y - agent.position.y) }
             ?.let {
-                val dist = abs(it.position.x - agent.position.x) + abs(it.position.y - agent.position.y)
-                sb.appendLine("Nearest resource node: ${it.subtype ?: "unknown"} at (${it.position.x}, ${it.position.y}) ${directionTo(agent.position, it.position)}")
+                sb.appendLine("Nearest resource source: ${it.subtype ?: "unknown"} (${it.remaining}/${it.capacity}) at (${it.position.x}, ${it.position.y}) ${directionTo(agent.position, it.position)}")
             }
         sb.appendLine()
 
@@ -124,7 +124,8 @@ RESPOND WITH ONLY THE JSON. No markdown, no explanation outside the JSON.
             sb.appendLine("=== NEARBY ENTITIES ===")
             for (e in nearbyEntities) {
                 val dist = abs(e.position.x - agent.position.x) + abs(e.position.y - agent.position.y)
-                sb.appendLine("${e.type}${if (e.subtype != null) "(${e.subtype})" else ""} at (${e.position.x},${e.position.y}) dist=$dist")
+                val capacityInfo = if (e.type == EntityType.RESOURCE_NODE && e.capacity > 0) " remaining=${e.remaining}/${e.capacity}" else ""
+                sb.appendLine("${e.type}${if (e.subtype != null) "(${e.subtype})" else ""} at (${e.position.x},${e.position.y}) dist=$dist$capacityInfo")
             }
             sb.appendLine()
         }

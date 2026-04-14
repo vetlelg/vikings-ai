@@ -14,15 +14,15 @@ class ThreatManager(
     private val dragon: Dragon,
     private val rng: Random = Random.Default
 ) {
-    // Dragon appears every ~60 ticks, stays until defeated or ~30 ticks
-    private var dragonScheduledTick = 60 + rng.nextInt(20)
+    // Dragon appears every ~100 ticks, stays until defeated or ~30 ticks
+    private var dragonScheduledTick = 100 + rng.nextInt(30)
     private var dragonDespawnTick = -1
 
-    // Wolves spawn every ~15 ticks
-    private var nextWolfTick = 10 + rng.nextInt(10)
+    // Wolves spawn every ~25 ticks, first one delayed
+    private var nextWolfTick = 30 + rng.nextInt(15)
 
-    // Raids every ~80 ticks
-    private var nextRaidTick = 80 + rng.nextInt(30)
+    // Raids every ~100 ticks
+    private var nextRaidTick = 100 + rng.nextInt(40)
 
     fun update(): List<WorldEvent> {
         val events = mutableListOf<WorldEvent>()
@@ -31,7 +31,7 @@ class ThreatManager(
         if (world.tick >= dragonScheduledTick && world.entities.none { it.type == EntityType.DRAGON }) {
             dragon.spawn()?.let { events.add(it) }
             dragonDespawnTick = world.tick + 30 + rng.nextInt(20)
-            dragonScheduledTick = world.tick + 80 + rng.nextInt(40)
+            dragonScheduledTick = world.tick + 120 + rng.nextInt(40)
         }
 
         // Dragon despawn if it's been around too long
@@ -41,21 +41,21 @@ class ThreatManager(
         }
 
         // Dragon movement/combat
-        dragon.update()?.let { events.add(it) }
+        events.addAll(dragon.update())
 
         // Wolf spawning
         if (world.tick >= nextWolfTick) {
             spawnWolf()?.let { events.add(it) }
-            nextWolfTick = world.tick + 12 + rng.nextInt(10)
+            nextWolfTick = world.tick + 20 + rng.nextInt(15)
         }
 
-        // Wolf AI: move toward nearest agent
-        updateWolves()
+        // Wolf AI: move toward nearest agent, attack + get retaliated
+        events.addAll(updateWolves())
 
         // Raids
         if (world.tick >= nextRaidTick) {
             events.addAll(spawnRaid())
-            nextRaidTick = world.tick + 70 + rng.nextInt(40)
+            nextRaidTick = world.tick + 100 + rng.nextInt(40)
         }
 
         return events
@@ -89,9 +89,11 @@ class ThreatManager(
         )
     }
 
-    private fun updateWolves() {
+    private fun updateWolves(): List<WorldEvent> {
+        val events = mutableListOf<WorldEvent>()
         val wolves = world.entities.filter { it.type == EntityType.WOLF }
         val aliveAgents = world.agents.filter { it.status == AgentStatus.ALIVE }
+        val deadWolves = mutableListOf<MutableEntity>()
 
         for (wolf in wolves) {
             if (aliveAgents.isEmpty()) break
@@ -113,7 +115,7 @@ class ThreatManager(
                 newPos.y.coerceIn(0, world.grid.size - 1)
             )
             val terrain = world.grid[clampedPos.y][clampedPos.x]
-            if (terrain != TerrainType.WATER && terrain != TerrainType.MOUNTAIN
+            if (terrain != TerrainType.WATER
                 && !world.isOccupied(clampedPos, excludeEntityId = wolf.id)) {
                 wolf.position = clampedPos
             }
@@ -122,11 +124,46 @@ class ThreatManager(
             if (manhattanDist(wolf.position, nearest.position) <= 1) {
                 val damage = 5 + rng.nextInt(8)
                 nearest.health -= damage
+
+                events.add(WorldEvent(
+                    tick = world.tick,
+                    eventType = EventType.COMBAT,
+                    description = "A wolf attacks ${nearest.name}! (${nearest.name} HP: ${nearest.health})",
+                    severity = Severity.HIGH,
+                    affectedPositions = listOf(wolf.position, nearest.position)
+                ))
+
                 if (nearest.health <= 0) {
                     nearest.status = AgentStatus.DEAD
+                    events.add(WorldEvent(
+                        tick = world.tick,
+                        eventType = EventType.AGENT_DIED,
+                        description = "${nearest.name} has been slain by a wolf!",
+                        severity = Severity.CRITICAL,
+                        affectedPositions = listOf(nearest.position)
+                    ))
+                } else {
+                    // Agent auto-retaliates
+                    val killed = world.autoRetaliate(nearest, wolf)
+                    if (killed) {
+                        nearest.kills++
+                        deadWolves.add(wolf)
+                        events.add(WorldEvent(
+                            tick = world.tick,
+                            eventType = EventType.COMBAT,
+                            description = "${nearest.name} fights back and slays the wolf!",
+                            severity = Severity.HIGH,
+                            affectedPositions = listOf(wolf.position)
+                        ))
+                    }
                 }
             }
         }
+
+        // Remove dead wolves after iteration
+        world.entities.removeAll { it in deadWolves }
+
+        return events
     }
 
     private fun spawnRaid(): List<WorldEvent> {

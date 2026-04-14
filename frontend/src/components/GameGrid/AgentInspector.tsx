@@ -88,7 +88,7 @@ function MiniMap({ trail, current, color }: { trail: Position[]; current: Positi
 export function AgentInspector() {
   const selectedAgent = useGameStore((s) => s.selectedAgent);
   const agents = useGameStore((s) => s.agents);
-  const latestActionByAgent = useGameStore((s) => s.latestActionByAgent);
+  const latestTaskByAgent = useGameStore((s) => s.latestTaskByAgent);
   const agentFullTrails = useGameStore((s) => s.agentFullTrails);
   const setSelectedAgent = useGameStore((s) => s.setSelectedAgent);
 
@@ -97,7 +97,7 @@ export function AgentInspector() {
   const agent = agents.find((a) => a.name === selectedAgent);
   if (!agent) return null;
 
-  const lastAction = latestActionByAgent[agent.name];
+  const lastTask = latestTaskByAgent[agent.name];
   const invEntries = Object.entries(agent.inventory).filter(([, v]) => v > 0);
   const depositEntries = Object.entries(agent.totalDeposited).filter(([, v]) => v > 0);
   const trail = agentFullTrails[agent.name] || [];
@@ -173,16 +173,19 @@ export function AgentInspector() {
         )}
       </div>
 
-      {lastAction && (
-        <div className={styles.section}>
-          <div className={styles.label}>Last Action</div>
-          <div className={styles.action}>
-            {agent.currentAction ?? lastAction.action}
-            {(agent.currentDirection ?? lastAction.direction) ? ` ${agent.currentDirection ?? lastAction.direction}` : ''}
-          </div>
-          <div className={styles.reasoning}>"{lastAction.reasoning}"</div>
+      <div className={styles.section}>
+        <div className={styles.label}>Current Task</div>
+        <div className={styles.action}>
+          {agent.currentTaskType ?? lastTask?.taskType ?? 'None'}
+          {lastTask?.targetResourceType ? ` (${lastTask.targetResourceType})` : ''}
         </div>
-      )}
+        <div className={styles.reasoning}>"{agent.currentTaskReasoning ?? lastTask?.reasoning ?? ''}"</div>
+        {agent.currentAction && (
+          <div className={styles.mono} style={{ fontSize: 10, marginTop: 2 }}>
+            Doing: {agent.currentAction}{agent.currentDirection ? ` ${agent.currentDirection}` : ''}
+          </div>
+        )}
+      </div>
 
       <div className={styles.section}>
         <div className={styles.label}>Trail</div>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useGameStore } from '../store/gameStore';
-import type { WSMessage, WorldState, AgentAction, WorldEvent, SagaLogEntry, WorldCommand } from '../types/world';
+import type { WSMessage, WorldState, AgentTask, WorldEvent, SagaLogEntry, WorldCommand } from '../types/world';
 
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8080/ws';
 
@@ -10,7 +10,7 @@ export function useGameSocket() {
   const attemptRef = useRef(0);
 
   const applyWorldState = useGameStore((s) => s.applyWorldState);
-  const addAgentAction = useGameStore((s) => s.addAgentAction);
+  const addAgentTask = useGameStore((s) => s.addAgentTask);
   const addWorldEvent = useGameStore((s) => s.addWorldEvent);
   const addSagaEntry = useGameStore((s) => s.addSagaEntry);
   const setConnected = useGameStore((s) => s.setConnected);
@@ -40,8 +40,8 @@ export function useGameSocket() {
             case 'world-state':
               applyWorldState(msg.payload as WorldState);
               break;
-            case 'agent-actions':
-              addAgentAction(msg.payload as AgentAction);
+            case 'agent-tasks':
+              addAgentTask(msg.payload as AgentTask);
               break;
             case 'world-events':
               addWorldEvent(msg.payload as WorldEvent);
@@ -75,7 +75,7 @@ export function useGameSocket() {
       attemptRef.current++;
       reconnectTimer.current = setTimeout(connect, delay);
     }
-  }, [applyWorldState, addAgentAction, addWorldEvent, addSagaEntry, setConnected]);
+  }, [applyWorldState, addAgentTask, addWorldEvent, addSagaEntry, setConnected]);
 
   useEffect(() => {
     connect();

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type {
-  WorldState, AgentAction, WorldEvent, SagaLogEntry, Toast,
+  WorldState, AgentAction, AgentTask, WorldEvent, SagaLogEntry, Toast,
   AgentSnapshot, ColonyResources, TimeOfDay, Weather,
   ThreatSnapshot, EntitySnapshot, TerrainType, Position, GameStatus,
 } from '../types/world';
@@ -24,12 +24,12 @@ interface GameState {
   voyageGoal: ColonyResources;
 
   // Rolling logs (capped)
-  agentActions: AgentAction[];
+  agentTasks: AgentTask[];
   worldEvents: WorldEvent[];
   sagaEntries: SagaLogEntry[];
 
-  // Latest action per agent (for action bubbles)
-  latestActionByAgent: Record<string, AgentAction>;
+  // Latest task per agent (for action bubbles)
+  latestTaskByAgent: Record<string, AgentTask>;
 
   // Selected agent (for inspector)
   selectedAgent: string | null;
@@ -48,7 +48,7 @@ interface GameState {
 
   // Actions
   applyWorldState: (ws: WorldState) => void;
-  addAgentAction: (a: AgentAction) => void;
+  addAgentTask: (t: AgentTask) => void;
   addWorldEvent: (e: WorldEvent) => void;
   addSagaEntry: (s: SagaLogEntry) => void;
   setConnected: (c: boolean) => void;
@@ -68,11 +68,11 @@ export const useGameStore = create<GameState>((set) => ({
   gameStatus: 'IN_PROGRESS',
   voyageGoal: { timber: 50, fish: 0, iron: 30, furs: 20 },
 
-  agentActions: [],
+  agentTasks: [],
   worldEvents: [],
   sagaEntries: [],
 
-  latestActionByAgent: {},
+  latestTaskByAgent: {},
   selectedAgent: null,
   agentTrails: {},
   agentFullTrails: {},
@@ -113,9 +113,9 @@ export const useGameStore = create<GameState>((set) => ({
     };
   }),
 
-  addAgentAction: (a) => set((state) => ({
-    agentActions: [...state.agentActions.slice(-49), a],
-    latestActionByAgent: { ...state.latestActionByAgent, [a.agentName]: a },
+  addAgentTask: (t) => set((state) => ({
+    agentTasks: [...state.agentTasks.slice(-49), t],
+    latestTaskByAgent: { ...state.latestTaskByAgent, [t.agentName]: t },
   })),
 
   addWorldEvent: (e) => set((state) => {

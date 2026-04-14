@@ -1,5 +1,6 @@
 package com.vikingsai.engine.world
 
+import com.vikingsai.common.model.EntityType
 import com.vikingsai.common.model.Position
 import com.vikingsai.common.model.TerrainType
 import com.vikingsai.common.model.TerrainType.*
@@ -90,13 +91,92 @@ object MapGenerator {
     }
 
     /**
+     * Generates initial resource sources based on terrain.
+     * Trees on forest tiles, mines near mountains, fishing spots on beaches, hunting grounds on grass.
+     */
+    fun generateResourceSources(grid: List<List<TerrainType>>, seed: Long = 42): List<MutableEntity> {
+        val rng = Random(seed + 7)
+        val sources = mutableListOf<MutableEntity>()
+        val width = grid[0].size
+        val height = grid.size
+        var id = 0
+
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                val terrain = grid[y][x]
+                val pos = Position(x, y)
+                val adj = neighbors(x, y, width, height)
+
+                // Trees on ~35% of forest tiles
+                if (terrain == FOREST && rng.nextFloat() < 0.35f) {
+                    sources.add(MutableEntity(
+                        id = "tree-${id++}",
+                        type = EntityType.RESOURCE_NODE,
+                        position = pos,
+                        subtype = "tree",
+                        health = 10,
+                        maxHealth = 10
+                    ))
+                }
+
+                // Mines on walkable tiles adjacent to mountains (~20%)
+                if (terrain != WATER && terrain != MOUNTAIN && terrain != VILLAGE) {
+                    val adjMountain = adj.any { (nx, ny) -> grid[ny][nx] == MOUNTAIN }
+                    if (adjMountain && rng.nextFloat() < 0.20f) {
+                        sources.add(MutableEntity(
+                            id = "mine-${id++}",
+                            type = EntityType.RESOURCE_NODE,
+                            position = pos,
+                            subtype = "mine",
+                            health = 8,
+                            maxHealth = 8
+                        ))
+                    }
+                }
+
+                // Fishing spots on beach tiles adjacent to water (~25%)
+                if (terrain == BEACH) {
+                    val adjWater = adj.any { (nx, ny) -> grid[ny][nx] == WATER }
+                    if (adjWater && rng.nextFloat() < 0.25f) {
+                        sources.add(MutableEntity(
+                            id = "fish-${id++}",
+                            type = EntityType.RESOURCE_NODE,
+                            position = pos,
+                            subtype = "fishing_spot",
+                            health = 12,
+                            maxHealth = 12
+                        ))
+                    }
+                }
+
+                // Hunting grounds on grass near forests (~6%)
+                if (terrain == GRASS) {
+                    val nearForest = adj.any { (nx, ny) -> grid[ny][nx] == FOREST }
+                    if (nearForest && rng.nextFloat() < 0.06f) {
+                        sources.add(MutableEntity(
+                            id = "hunt-${id++}",
+                            type = EntityType.RESOURCE_NODE,
+                            position = pos,
+                            subtype = "hunting_ground",
+                            health = 6,
+                            maxHealth = 6
+                        ))
+                    }
+                }
+            }
+        }
+
+        return sources
+    }
+
+    /**
      * Returns walkable positions (not water, not mountain) for spawning agents/entities.
      */
     fun walkablePositions(grid: List<List<TerrainType>>): List<Position> {
         val positions = mutableListOf<Position>()
         for (y in grid.indices) {
             for (x in grid[y].indices) {
-                if (grid[y][x] != WATER && grid[y][x] != MOUNTAIN) {
+                if (grid[y][x] != WATER) {
                     positions.add(Position(x, y))
                 }
             }
@@ -104,7 +184,7 @@ object MapGenerator {
         return positions
     }
 
-    private fun neighbors(x: Int, y: Int, width: Int, height: Int): List<Pair<Int, Int>> {
+    fun neighbors(x: Int, y: Int, width: Int, height: Int): List<Pair<Int, Int>> {
         return listOf(x - 1 to y, x + 1 to y, x to y - 1, x to y + 1)
             .filter { (nx, ny) -> nx in 0 until width && ny in 0 until height }
     }

@@ -26,6 +26,8 @@ data class AgentSnapshot(
     val status: AgentStatus = AgentStatus.ALIVE,
     val currentAction: ActionType? = null,
     val currentDirection: String? = null,
+    val currentTaskType: TaskType? = null,
+    val currentTaskReasoning: String? = null,
     val kills: Int = 0,
     val deaths: Int = 0,
     val totalDeposited: Map<ResourceType, Int> = emptyMap()
@@ -36,7 +38,9 @@ data class EntitySnapshot(
     val id: String,
     val type: EntityType,
     val position: Position,
-    val subtype: String? = null
+    val subtype: String? = null,
+    val remaining: Int = 0,
+    val capacity: Int = 0
 )
 
 @Serializable

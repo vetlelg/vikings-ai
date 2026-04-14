@@ -22,10 +22,10 @@ const terrainLabels: Record<TerrainType, string> = {
 };
 
 const subtypeLabels: Record<string, string> = {
-  timber: '🪵 Timber',
-  fish: '🐟 Fish',
-  iron: '⛏ Iron',
-  furs: '🦊 Furs',
+  tree: '🌲 Tree',
+  mine: '⛏ Mine',
+  fishing_spot: '🐟 Fishing Spot',
+  hunting_ground: '🦊 Hunting Ground',
 };
 
 export function GridTooltip({ x, y, mouseX, mouseY, terrain, agents, entities, threats }: Props) {
@@ -52,7 +52,9 @@ export function GridTooltip({ x, y, mouseX, mouseY, terrain, agents, entities, t
         <div key={e.id} className={styles.entity}>
           {e.type === 'WOLF' ? '🐺 Wolf' :
            e.type === 'DRAGON' ? '🐉 Dragon' :
-           subtypeLabels[e.subtype || ''] || `◆ ${e.subtype || 'Resource'}`}
+           `${subtypeLabels[e.subtype || ''] || `◆ ${e.subtype || 'Resource'}`}${
+             e.remaining != null && e.capacity ? ` (${e.remaining}/${e.capacity})` : ''
+           }`}
         </div>
       ))}
       {threats.map((t) => (

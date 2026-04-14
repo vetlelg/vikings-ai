@@ -2,7 +2,8 @@
 export type TerrainType = 'GRASS' | 'FOREST' | 'WATER' | 'MOUNTAIN' | 'BEACH' | 'VILLAGE';
 export type ResourceType = 'TIMBER' | 'FISH' | 'IRON' | 'FURS';
 export type AgentRole = 'JARL' | 'WARRIOR' | 'FISHERMAN' | 'SHIPBUILDER' | 'SKALD';
-export type ActionType = 'MOVE' | 'GATHER' | 'FIGHT' | 'BUILD' | 'PATROL' | 'FLEE' | 'SPEAK' | 'IDLE';
+export type ActionType = 'MOVE' | 'GATHER' | 'FIGHT' | 'BUILD' | 'FLEE' | 'SPEAK' | 'IDLE';
+export type TaskType = 'GATHER' | 'DEPOSIT' | 'FIGHT' | 'FLEE' | 'MOVE_TO' | 'IDLE';
 export type AgentStatus = 'ALIVE' | 'DEAD' | 'THINKING';
 export type TimeOfDay = 'DAWN' | 'DAY' | 'DUSK' | 'NIGHT';
 export type Weather = 'CLEAR' | 'SNOW' | 'STORM';
@@ -30,6 +31,8 @@ export interface AgentSnapshot {
   status: AgentStatus;
   currentAction?: ActionType;
   currentDirection?: string;
+  currentTaskType?: TaskType;
+  currentTaskReasoning?: string;
   kills: number;
   deaths: number;
   totalDeposited: Record<string, number>;
@@ -40,6 +43,8 @@ export interface EntitySnapshot {
   type: EntityType;
   position: Position;
   subtype?: string;
+  remaining?: number;
+  capacity?: number;
 }
 
 export interface ColonyResources {
@@ -92,13 +97,22 @@ export interface SagaLogEntry {
   text: string;
 }
 
+export interface AgentTask {
+  tick: number;
+  agentName: string;
+  taskType: TaskType;
+  targetResourceType?: string;
+  targetPosition?: Position;
+  reasoning: string;
+}
+
 // --- WebSocket envelope ---
-export type TopicType = 'world-state' | 'agent-actions' | 'world-events' | 'saga-log';
+export type TopicType = 'world-state' | 'agent-tasks' | 'world-events' | 'saga-log';
 
 export interface WSMessage {
   topic: TopicType;
   timestamp: number;
-  payload: WorldState | AgentAction | WorldEvent | SagaLogEntry;
+  payload: WorldState | AgentTask | AgentAction | WorldEvent | SagaLogEntry;
 }
 
 // --- Toast notification ---

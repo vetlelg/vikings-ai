@@ -45,12 +45,17 @@ class EventGenerator(private val world: WorldManager) {
             ))
         }
 
-        // Spawn resource nodes periodically
-        if (world.tick % 8 == 0 && world.tick > 0) {
-            val resourceNodeCount = world.entities.count { it.type == EntityType.RESOURCE_NODE }
-            if (resourceNodeCount < 15) {
-                world.spawnResourceNodes(2)
+        // Regrow resource sources periodically (trees regrow, new sources appear)
+        if (world.tick % 15 == 0 && world.tick > 0) {
+            val resourceCount = world.entities.count { it.type == EntityType.RESOURCE_NODE }
+            if (resourceCount < 80) {
+                world.spawnResourceSources(2)
             }
+        }
+
+        // Replenish fishing spots every 10 ticks (fish return)
+        if (world.tick % 10 == 0 && world.tick > 0) {
+            world.replenishFishingSpots()
         }
 
         // Check voyage completion

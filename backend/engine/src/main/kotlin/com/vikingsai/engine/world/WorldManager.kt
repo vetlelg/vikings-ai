@@ -80,7 +80,8 @@ class WorldManager(
 
     fun isOccupied(pos: Position, excludeAgentName: String? = null, excludeEntityId: String? = null): Boolean {
         if (agents.any { it.status == AgentStatus.ALIVE && it.position == pos && it.name != excludeAgentName }) return true
-        if (entities.any { it.position == pos && it.id != excludeEntityId }) return true
+        // Only threats (wolves, dragon) block movement — resource nodes don't
+        if (entities.any { it.position == pos && it.id != excludeEntityId && it.type != EntityType.RESOURCE_NODE }) return true
         return false
     }
 
@@ -98,40 +99,44 @@ class WorldManager(
         val newY = (agent.position.y + dy).coerceIn(0, height - 1)
         val newPos = Position(newX, newY)
         val terrain = grid[newY][newX]
-        if (terrain == TerrainType.WATER || terrain == TerrainType.MOUNTAIN) return false
+        if (terrain == TerrainType.WATER) return false
         if (isOccupied(newPos, excludeAgentName = agent.name)) return false
         agent.position = newPos
         return true
     }
 
-    // --- Resource gathering ---
+    // --- Resource gathering: AoE-style from adjacent resource sources ---
 
     fun tryGather(agent: MutableAgent): ResourceType? {
-        val terrain = grid[agent.position.y][agent.position.x]
-        val resourceEntity = entities.find {
-            it.type == EntityType.RESOURCE_NODE && it.position == agent.position
-        }
+        // Find nearest adjacent resource source (dist <= 1)
+        val source = entities
+            .filter { it.type == EntityType.RESOURCE_NODE && it.health > 0 }
+            .filter { manhattanDist(agent.position, it.position) <= 1 }
+            .minByOrNull { manhattanDist(agent.position, it.position) }
+            ?: return null
 
-        val resource = when {
-            resourceEntity != null -> {
-                val type = when (resourceEntity.subtype) {
-                    "timber" -> ResourceType.TIMBER
-                    "fish" -> ResourceType.FISH
-                    "iron" -> ResourceType.IRON
-                    "furs" -> ResourceType.FURS
-                    else -> return null
-                }
-                entities.remove(resourceEntity)
-                type
-            }
-            terrain == TerrainType.FOREST -> ResourceType.TIMBER
-            terrain == TerrainType.WATER -> ResourceType.FISH // shouldn't happen (water not walkable)
+        val resource = when (source.subtype) {
+            "tree" -> ResourceType.TIMBER
+            "mine" -> ResourceType.IRON
+            "fishing_spot" -> ResourceType.FISH
+            "hunting_ground" -> ResourceType.FURS
             else -> return null
         }
 
-        agent.inventory[resource] = (agent.inventory[resource] ?: 0) + 1
+        val gatherAmount = 2
+        source.health -= gatherAmount
+        agent.inventory[resource] = (agent.inventory[resource] ?: 0) + gatherAmount
+
+        // Remove depleted source
+        if (source.health <= 0) {
+            entities.remove(source)
+        }
+
         return resource
     }
+
+    private fun manhattanDist(a: Position, b: Position): Int =
+        Math.abs(a.x - b.x) + Math.abs(a.y - b.y)
 
     // --- Deposit to colony ---
 
@@ -173,6 +178,21 @@ class WorldManager(
         return target.health <= 0 // true if entity killed
     }
 
+    // --- Auto-retaliation when attacked by threats ---
+
+    fun autoRetaliate(agent: MutableAgent, attacker: MutableEntity): Boolean {
+        if (agent.status != AgentStatus.ALIVE) return false
+        // Reduced damage — defensive response, not a full attack
+        val damage = when (agent.role) {
+            AgentRole.WARRIOR -> 25 + rng.nextInt(15)   // 25-39
+            AgentRole.JARL -> 20 + rng.nextInt(10)       // 20-29
+            else -> 8 + rng.nextInt(7)                    // 8-14
+        }
+        attacker.health -= damage
+        agent.currentAction = ActionType.FIGHT
+        return attacker.health <= 0
+    }
+
     // --- Health regen and respawn ---
 
     fun healAndRespawn() {
@@ -192,52 +212,75 @@ class WorldManager(
                 }
                 continue
             }
-            // Slow heal when on village tiles
+            // Heal when on village tiles
             if (grid[agent.position.y][agent.position.x] == TerrainType.VILLAGE && agent.health < 100) {
-                agent.health = (agent.health + 5).coerceAtMost(100)
+                agent.health = (agent.health + 8).coerceAtMost(100)
             }
-            // Very slow passive regen
-            if (agent.health < 100 && tick % 3 == 0) {
-                agent.health = (agent.health + 1).coerceAtMost(100)
+            // Passive regen every 2 ticks
+            if (agent.health < 100 && tick % 2 == 0) {
+                agent.health = (agent.health + 2).coerceAtMost(100)
             }
         }
     }
 
-    // --- Spawn resource nodes ---
+    // --- Spawn resource sources (regrowth / replenishment) ---
 
-    fun spawnResourceNodes(count: Int = 2) {
-        val walkable = MapGenerator.walkablePositions(grid).filter { pos ->
-            entities.none { it.position == pos } && agents.none { it.position == pos }
-        }
-        if (walkable.isEmpty()) return
+    fun spawnResourceSources(count: Int = 2) {
+        val occupied = entities.map { it.position }.toSet() + agents.map { it.position }.toSet()
 
-        repeat(count.coerceAtMost(walkable.size)) {
-            val pos = walkable.random(rng)
-            val (subtype, terrainCheck) = when (rng.nextInt(4)) {
-                0 -> "timber" to TerrainType.FOREST
-                1 -> "fish" to TerrainType.BEACH
-                2 -> "iron" to TerrainType.MOUNTAIN
-                else -> "furs" to TerrainType.GRASS
-            }
-            // Place near appropriate terrain if possible, otherwise anywhere
-            val nearbyPos = walkable.filter { p ->
-                val neighbors = listOf(
-                    Position(p.x - 1, p.y), Position(p.x + 1, p.y),
-                    Position(p.x, p.y - 1), Position(p.x, p.y + 1)
-                )
-                neighbors.any { n ->
-                    n.x in 0 until width && n.y in 0 until height && grid[n.y][n.x] == terrainCheck
+        // Determine what the colony needs most
+        data class SpawnDef(val subtype: String, val terrain: TerrainType, val health: Int, val adjacentTo: TerrainType? = null)
+        val defs = listOf(
+            SpawnDef("tree", TerrainType.FOREST, 10),
+            SpawnDef("mine", TerrainType.GRASS, 8, adjacentTo = TerrainType.MOUNTAIN),
+            SpawnDef("fishing_spot", TerrainType.BEACH, 12, adjacentTo = TerrainType.WATER),
+            SpawnDef("hunting_ground", TerrainType.GRASS, 6)
+        )
+
+        var spawned = 0
+        repeat(count) {
+            if (spawned >= count) return
+            val def = defs[rng.nextInt(defs.size)]
+
+            val candidates = (0 until height).flatMap { y ->
+                (0 until width).mapNotNull { x ->
+                    val pos = Position(x, y)
+                    if (pos in occupied) return@mapNotNull null
+                    if (entities.any { it.position == pos }) return@mapNotNull null
+
+                    val onTerrain = grid[y][x] == def.terrain
+                    val adjOk = def.adjacentTo == null || listOf(
+                        Position(x - 1, y), Position(x + 1, y),
+                        Position(x, y - 1), Position(x, y + 1)
+                    ).any { n ->
+                        n.x in 0 until width && n.y in 0 until height && grid[n.y][n.x] == def.adjacentTo
+                    }
+                    if (onTerrain && adjOk) pos else null
                 }
-            }.ifEmpty { listOf(pos) }
+            }
 
-            val finalPos = nearbyPos.random(rng)
-            entities.add(MutableEntity(
-                id = "resource-${tick}-${entities.size}",
-                type = EntityType.RESOURCE_NODE,
-                position = finalPos,
-                subtype = subtype,
-                health = 1
-            ))
+            if (candidates.isNotEmpty()) {
+                val pos = candidates.random(rng)
+                entities.add(MutableEntity(
+                    id = "${def.subtype}-${tick}-${entities.size}",
+                    type = EntityType.RESOURCE_NODE,
+                    position = pos,
+                    subtype = def.subtype,
+                    health = def.health,
+                    maxHealth = def.health
+                ))
+                spawned++
+            }
+        }
+    }
+
+    // --- Replenish fishing spots over time ---
+
+    fun replenishFishingSpots() {
+        for (entity in entities) {
+            if (entity.subtype == "fishing_spot" && entity.health < entity.maxHealth) {
+                entity.health = (entity.health + 1).coerceAtMost(entity.maxHealth)
+            }
         }
     }
 
@@ -277,6 +320,7 @@ data class MutableAgent(
     var status: AgentStatus = AgentStatus.ALIVE,
     var currentAction: ActionType? = null,
     var currentDirection: String? = null,
+    var currentTask: AgentTask? = null,
     var kills: Int = 0,
     var deaths: Int = 0,
     val totalDeposited: MutableMap<ResourceType, Int> = mutableMapOf()
@@ -290,6 +334,8 @@ data class MutableAgent(
         status = status,
         currentAction = currentAction,
         currentDirection = currentDirection,
+        currentTaskType = currentTask?.taskType,
+        currentTaskReasoning = currentTask?.reasoning,
         kills = kills,
         deaths = deaths,
         totalDeposited = totalDeposited.toMap()
@@ -301,13 +347,16 @@ data class MutableEntity(
     val type: EntityType,
     var position: Position,
     val subtype: String? = null,
-    var health: Int = 100
+    var health: Int = 100,
+    val maxHealth: Int = health
 ) {
     fun toSnapshot() = EntitySnapshot(
         id = id,
         type = type,
         position = position,
-        subtype = subtype
+        subtype = subtype,
+        remaining = health,
+        capacity = maxHealth
     )
 }
 

@@ -52,3 +52,14 @@
   0%, 100% { filter: drop-shadow(0 0 4px rgba(255, 60, 30, 0.6)); }
   50% { filter: drop-shadow(0 0 12px rgba(255, 60, 30, 1)) brightness(1.3); }
 }
+
+@keyframes low-health-pulse {
+  0%, 100% { filter: drop-shadow(0 0 3px rgba(192, 57, 43, 0.4)); }
+  50% { filter: drop-shadow(0 0 8px rgba(192, 57, 43, 0.8)); }
+}
+
+@keyframes gather-swing {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-8deg) translateY(-1px); }
+  75% { transform: rotate(8deg) translateY(-1px); }
+}

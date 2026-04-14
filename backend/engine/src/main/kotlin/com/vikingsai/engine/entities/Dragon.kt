@@ -40,13 +40,15 @@ class Dragon(private val world: WorldManager, private val rng: Random = Random.D
 
     /**
      * Moves the dragon toward the nearest living agent.
+     * Returns combat events including auto-retaliation.
      */
-    fun update(): WorldEvent? {
-        val dragon = world.entities.find { it.type == EntityType.DRAGON } ?: return null
+    fun update(): List<WorldEvent> {
+        val events = mutableListOf<WorldEvent>()
+        val dragon = world.entities.find { it.type == EntityType.DRAGON } ?: return events
         val aliveAgents = world.agents.filter { it.status == AgentStatus.ALIVE }
-        if (aliveAgents.isEmpty()) return null
+        if (aliveAgents.isEmpty()) return events
 
-        val nearest = aliveAgents.minByOrNull { manhattanDist(dragon.position, it.position) } ?: return null
+        val nearest = aliveAgents.minByOrNull { manhattanDist(dragon.position, it.position) } ?: return events
         val dx = nearest.position.x - dragon.position.x
         val dy = nearest.position.y - dragon.position.y
 
@@ -72,20 +74,45 @@ class Dragon(private val world: WorldManager, private val rng: Random = Random.D
         for (agent in adjacentAgents) {
             val damage = 15 + rng.nextInt(10)
             agent.health -= damage
+
             if (agent.health <= 0) {
                 agent.status = AgentStatus.DEAD
+                events.add(WorldEvent(
+                    tick = world.tick,
+                    eventType = EventType.AGENT_DIED,
+                    description = "${agent.name} has been slain by the dragon!",
+                    severity = Severity.CRITICAL,
+                    affectedPositions = listOf(agent.position)
+                ))
+            } else {
+                // Agent auto-retaliates against dragon
+                val dragonKilled = world.autoRetaliate(agent, dragon)
+                if (dragonKilled) {
+                    agent.kills++
+                    events.add(WorldEvent(
+                        tick = world.tick,
+                        eventType = EventType.DRAGON_DEFEATED,
+                        description = "${agent.name} has slain the dragon in self-defense!",
+                        severity = Severity.CRITICAL,
+                        affectedPositions = listOf(dragon.position)
+                    ))
+                    world.entities.remove(dragon)
+                    return events  // Dragon is dead, stop processing
+                }
             }
         }
 
-        return if (adjacentAgents.isNotEmpty()) {
-            WorldEvent(
+        if (adjacentAgents.isNotEmpty()) {
+            events.add(WorldEvent(
                 tick = world.tick,
                 eventType = EventType.COMBAT,
-                description = "The dragon attacks ${adjacentAgents.joinToString { it.name }}!",
+                description = "The dragon attacks ${adjacentAgents.joinToString { "${it.name} (HP:${it.health})" }}!",
                 severity = Severity.CRITICAL,
                 affectedPositions = adjacentAgents.map { it.position } + dragon.position
-            )
-        } else null
+            ))
+        }
+
+        return events
     }
 
     private fun manhattanDist(a: Position, b: Position): Int =

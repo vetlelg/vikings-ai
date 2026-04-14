@@ -39,15 +39,15 @@ fun main() {
     // Retry Kafka connection with backoff
     val producer = retryKafkaConnect(kafkaConfig.bootstrapServers)
 
-    val actionConsumer = createConsumer(
+    val taskConsumer = createConsumer(
         bootstrapServers = kafkaConfig.bootstrapServers,
         groupId = "engine",
-        topics = listOf(Topics.AGENT_ACTIONS)
+        topics = listOf(Topics.AGENT_TASKS)
     )
 
     val gameLoop = GameLoop(
         producer = producer,
-        actionConsumer = actionConsumer,
+        taskConsumer = taskConsumer,
         tickRateMs = engineConfig.tickRateMs,
         gridWidth = engineConfig.gridWidth,
         gridHeight = engineConfig.gridHeight
@@ -56,7 +56,7 @@ fun main() {
     Runtime.getRuntime().addShutdownHook(Thread {
         log.info("Shutting down engine...")
         producer.close()
-        actionConsumer.close()
+        taskConsumer.close()
     })
 
     runBlocking {

@@ -12,7 +12,10 @@ enum class ResourceType { TIMBER, FISH, IRON, FURS }
 enum class AgentRole { JARL, WARRIOR, FISHERMAN, SHIPBUILDER, SKALD }
 
 @Serializable
-enum class ActionType { MOVE, GATHER, FIGHT, BUILD, PATROL, FLEE, SPEAK, IDLE }
+enum class ActionType { MOVE, GATHER, FIGHT, BUILD, FLEE, SPEAK, IDLE }
+
+@Serializable
+enum class TaskType { GATHER, DEPOSIT, FIGHT, FLEE, MOVE_TO, IDLE }
 
 @Serializable
 enum class AgentStatus { ALIVE, DEAD, THINKING }

@@ -4,10 +4,10 @@ import styles from './EventLog.module.css';
 
 export function EventLog() {
   const worldEvents = useGameStore((s) => s.worldEvents);
-  const agentActions = useGameStore((s) => s.agentActions);
+  const agentTasks = useGameStore((s) => s.agentTasks);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Merge events and actions, sorted by tick
+  // Merge events and tasks, sorted by tick
   const entries = [
     ...worldEvents.map((e) => ({
       tick: e.tick,
@@ -15,11 +15,11 @@ export function EventLog() {
       text: e.description,
       key: `e-${e.tick}-${e.eventType}-${e.description.slice(0, 20)}`,
     })),
-    ...agentActions.map((a) => ({
-      tick: a.tick,
-      type: a.action,
-      text: `${a.agentName}: ${a.action}${a.direction ? ' ' + a.direction : ''} — ${a.reasoning}`,
-      key: `a-${a.tick}-${a.agentName}`,
+    ...agentTasks.map((t) => ({
+      tick: t.tick,
+      type: t.taskType,
+      text: `${t.agentName}: ${t.taskType}${t.targetResourceType ? ' (' + t.targetResourceType + ')' : ''} — ${t.reasoning}`,
+      key: `t-${t.tick}-${t.agentName}`,
     })),
   ].sort((a, b) => a.tick - b.tick);
 

@@ -23,12 +23,11 @@ import java.util.concurrent.Semaphore
 /**
  * Base class for all Viking agents. Each agent:
  * 1. Consumes world-state and world-events from Kafka
- * 2. Builds an LLM prompt with its personality + current world state
- * 3. Calls the LLM provider for a decision
- * 4. Publishes the action to agent-actions (or saga-log for Skald)
+ * 2. Decides when a new task is needed (no task, task completed, interrupt)
+ * 3. Calls the LLM provider for a high-level task decision
+ * 4. Publishes the task to agent-tasks (engine executes it mechanically)
  *
- * Self-contained: receives all dependencies via constructor.
- * Can be extracted to a separate main() for independent process mode.
+ * Agents only call the LLM when replanning — not every tick.
  */
 open class BaseAgent(
     val name: String,
@@ -44,10 +43,10 @@ open class BaseAgent(
 
     private var latestWorldState: WorldState? = null
     private val recentEvents = mutableListOf<WorldEvent>()
-    private val myRecentActions = mutableListOf<AgentAction>()
     private var lastProcessedTick = -1
+    private var lastTaskTick = -1
 
-    suspend fun run() {
+    open suspend fun run() {
         log.info("$name the ${role.name} awakens")
 
         val consumer = withContext(Dispatchers.IO) {
@@ -61,7 +60,6 @@ open class BaseAgent(
 
         try {
             while (kotlin.coroutines.coroutineContext.isActive) {
-                // Poll for new messages
                 val records = withContext(Dispatchers.IO) {
                     consumer.poll(Duration.ofMillis(1000))
                 }
@@ -87,22 +85,20 @@ open class BaseAgent(
                     }
                 }
 
-                // Act on the latest world state if it's a new tick
                 val ws = latestWorldState ?: continue
                 if (ws.tick <= lastProcessedTick) continue
                 lastProcessedTick = ws.tick
 
-                // Check if this agent is alive
                 val self = ws.agents.find { it.name == name }
-                if (self != null && self.status == AgentStatus.DEAD) {
-                    log.debug("$name is dead, skipping tick ${ws.tick}")
-                    continue
-                }
+                if (self != null && self.status == AgentStatus.DEAD) continue
 
-                try {
-                    processTickAction(ws)
-                } catch (e: Exception) {
-                    log.error("Error processing tick ${ws.tick}: ${e.message}")
+                // Only replan when needed
+                if (self != null && needsNewTask(self, ws)) {
+                    try {
+                        sendTask(ws)
+                    } catch (e: Exception) {
+                        log.error("Error planning task at tick ${ws.tick}: ${e.message}")
+                    }
                 }
             }
         } finally {
@@ -111,69 +107,97 @@ open class BaseAgent(
         }
     }
 
-    protected open suspend fun processTickAction(worldState: WorldState) {
-        val systemPrompt = PromptBuilder.buildSystemPrompt(name, role, personality)
-        val userPrompt = PromptBuilder.buildUserPrompt(name, worldState, recentEvents, myRecentActions)
+    /**
+     * Determines if the agent needs to replan.
+     */
+    private fun needsNewTask(self: AgentSnapshot, ws: WorldState): Boolean {
+        // No current task — definitely need one
+        if (self.currentTaskType == null) return true
 
-        // Rate limit LLM calls
+        // Interrupt: nearby threat and not already fighting/fleeing
+        if (self.currentTaskType != TaskType.FIGHT && self.currentTaskType != TaskType.FLEE) {
+            val nearestThreat = ws.threats.minByOrNull {
+                Math.abs(it.position.x - self.position.x) + Math.abs(it.position.y - self.position.y)
+            }
+            if (nearestThreat != null) {
+                val dist = Math.abs(nearestThreat.position.x - self.position.x) +
+                        Math.abs(nearestThreat.position.y - self.position.y)
+                if (dist <= 4) return true
+            }
+        }
+
+        // Interrupt: health critical and not already fleeing/idle
+        if (self.health < 30 && self.currentTaskType != TaskType.FLEE && self.currentTaskType != TaskType.IDLE) {
+            return true
+        }
+
+        return false
+    }
+
+    protected open suspend fun sendTask(worldState: WorldState) {
+        val systemPrompt = PromptBuilder.buildSystemPrompt(name, role, personality)
+        val userPrompt = PromptBuilder.buildUserPrompt(name, worldState, recentEvents)
+
         rateLimiter?.let { withContext(Dispatchers.IO) { it.acquire() } }
         try {
             val response = provider.complete(systemPrompt, userPrompt, maxTokens)
-            val action = parseAction(response, worldState.tick)
+            val task = parseTask(response, worldState.tick)
 
-            if (action != null) {
-                val json = GameJson.encodeToString(AgentAction.serializer(), action)
+            if (task != null) {
+                val json = GameJson.encodeToString(AgentTask.serializer(), task)
                 withContext(Dispatchers.IO) {
-                    producer.send(ProducerRecord(Topics.AGENT_ACTIONS, name, json))
+                    producer.send(ProducerRecord(Topics.AGENT_TASKS, name, json))
                 }
-                // Track recent actions for short-term memory
-                myRecentActions.add(action)
-                if (myRecentActions.size > 5) myRecentActions.removeFirst()
-
-                log.info("[Tick ${worldState.tick}] ${action.action}${if (action.direction != null) " ${action.direction}" else ""} — ${action.reasoning.take(60)}")
+                lastTaskTick = worldState.tick
+                log.info("[Tick ${worldState.tick}] TASK: ${task.taskType}${if (task.targetResourceType != null) " (${task.targetResourceType})" else ""} — ${task.reasoning.take(60)}")
             }
         } finally {
             rateLimiter?.release()
         }
     }
 
-    private fun parseAction(response: String, tick: Int): AgentAction? {
+    private fun parseTask(response: String, tick: Int): AgentTask? {
         return try {
-            // Try to extract JSON from response (LLM might wrap it in markdown)
             val jsonStr = extractJson(response)
             val json = Json.parseToJsonElement(jsonStr).jsonObject
-            val action = json["action"]?.jsonPrimitive?.content?.uppercase() ?: return null
-            AgentAction(
+            val taskTypeStr = json["taskType"]?.jsonPrimitive?.content?.uppercase() ?: return null
+            val taskType = TaskType.valueOf(taskTypeStr)
+
+            val targetResource = json["targetResourceType"]?.jsonPrimitive?.content?.uppercase()?.let {
+                try { ResourceType.valueOf(it) } catch (_: Exception) { null }
+            }
+
+            val targetPos = json["targetPosition"]?.jsonObject?.let { pos ->
+                val x = pos["x"]?.jsonPrimitive?.content?.toIntOrNull()
+                val y = pos["y"]?.jsonPrimitive?.content?.toIntOrNull()
+                if (x != null && y != null) Position(x, y) else null
+            }
+
+            AgentTask(
                 tick = tick,
                 agentName = name,
-                action = ActionType.valueOf(action),
-                direction = json["direction"]?.jsonPrimitive?.content,
+                taskType = taskType,
+                targetResourceType = targetResource,
+                targetPosition = targetPos,
                 reasoning = json["reasoning"]?.jsonPrimitive?.content ?: ""
             )
         } catch (e: Exception) {
-            log.warn("Failed to parse LLM response: ${e.message}. Raw: ${response.take(100)}")
-            // Fallback: idle
-            AgentAction(
+            log.warn("Failed to parse LLM task response: ${e.message}. Raw: ${response.take(100)}")
+            AgentTask(
                 tick = tick,
                 agentName = name,
-                action = ActionType.IDLE,
+                taskType = TaskType.IDLE,
                 reasoning = "Failed to decide"
             )
         }
     }
 
     private fun extractJson(text: String): String {
-        // Handle markdown code blocks
         val codeBlockPattern = Regex("```(?:json)?\\s*\\n?(\\{.*?})\\s*\\n?```", RegexOption.DOT_MATCHES_ALL)
         codeBlockPattern.find(text)?.let { return it.groupValues[1].trim() }
-
-        // Find first { ... } block
         val start = text.indexOf('{')
         val end = text.lastIndexOf('}')
-        if (start >= 0 && end > start) {
-            return text.substring(start, end + 1)
-        }
-
+        if (start >= 0 && end > start) return text.substring(start, end + 1)
         return text.trim()
     }
 }

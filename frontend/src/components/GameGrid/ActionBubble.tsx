@@ -6,7 +6,6 @@ const actionEmoji: Record<ActionType, string> = {
   GATHER: '⛏',
   FIGHT: '⚔️',
   BUILD: '🏗️',
-  PATROL: '👁️',
   FLEE: '🏃',
   SPEAK: '💬',
   IDLE: '💤',
