@@ -1,0 +1,18 @@
+.wolf {
+  position: absolute;
+  width: var(--cell-size);
+  height: var(--cell-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--transition-glide);
+  z-index: 9;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.7));
+  animation: wolf-prowl 3s ease-in-out infinite;
+}
+
+@keyframes wolf-prowl {
+  0%, 100% { filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.7)); }
+  50% { filter: drop-shadow(0 0 6px rgba(200, 60, 60, 0.5)); }
+}
