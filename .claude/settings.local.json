@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew :agent:compileKotlin)",
+      "Bash(./gradlew compileKotlin)",
+      "Bash(npx tsc *)"
+    ]
+  }
+}

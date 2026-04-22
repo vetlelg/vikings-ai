@@ -1,0 +1,69 @@
+.directivePanel {
+  background: linear-gradient(to bottom, #2a2215, #1e1a12);
+  border: 1px solid rgba(212, 168, 67, 0.3);
+  border-radius: 4px;
+  padding: 10px;
+  overflow-y: auto;
+  flex: 0 0 auto;
+  max-height: 200px;
+}
+
+.heading {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-gold);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(212, 168, 67, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.crownIcon {
+  font-size: 12px;
+}
+
+.entry {
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  animation: fade-in-up 0.4s ease forwards;
+}
+
+.assessment {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text);
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+
+.tick {
+  color: var(--color-text-muted);
+  margin-right: 6px;
+  font-size: 10px;
+}
+
+.assignment {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-text-muted);
+  padding-left: 8px;
+  line-height: 1.5;
+}
+
+.assigneeName {
+  color: var(--color-gold);
+  font-weight: 600;
+}
+
+.empty {
+  font-style: italic;
+  color: var(--color-text-muted);
+  text-align: center;
+  font-size: 11px;
+  padding: 12px;
+}
