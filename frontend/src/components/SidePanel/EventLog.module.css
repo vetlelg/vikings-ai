@@ -41,6 +41,10 @@
 .NIGHT_FALLING, .DAWN_BREAKING { color: #8e8e8e; }
 .WEATHER_CHANGE { color: #3498db; }
 .AGENT_SPOKE { color: #9b59b6; }
+.OBS_RESOURCE_FOUND { color: #27ae60; font-style: italic; }
+.OBS_RESOURCE_DEPLETED { color: #95a5a6; font-style: italic; }
+.OBS_THREAT_SPOTTED { color: #e67e22; font-style: italic; }
+.OBS_AREA_CLEAR { color: #7f8c8d; font-style: italic; }
 
 .empty {
   font-style: italic;

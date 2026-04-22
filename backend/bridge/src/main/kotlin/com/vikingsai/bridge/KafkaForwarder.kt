@@ -33,7 +33,8 @@ class KafkaForwarder(
                     Topics.WORLD_STATE,
                     Topics.AGENT_TASKS,
                     Topics.WORLD_EVENTS,
-                    Topics.SAGA_LOG
+                    Topics.AGENT_DIRECTIVES,
+                    Topics.AGENT_OBSERVATIONS
                 ),
                 fromBeginning = false
             )

@@ -16,7 +16,6 @@
 .WARRIOR { --glow-color: #c0392b; }
 .FISHERMAN { --glow-color: #3498db; }
 .SHIPBUILDER { --glow-color: #8b6914; }
-.SKALD { --glow-color: #9b59b6; }
 
 .selected {
   z-index: 12;

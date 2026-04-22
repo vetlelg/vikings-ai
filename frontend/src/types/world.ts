@@ -1,7 +1,7 @@
 // --- Enums (string unions matching backend Kotlin enums) ---
 export type TerrainType = 'GRASS' | 'FOREST' | 'WATER' | 'MOUNTAIN' | 'BEACH' | 'VILLAGE';
 export type ResourceType = 'TIMBER' | 'FISH' | 'IRON' | 'FURS';
-export type AgentRole = 'JARL' | 'WARRIOR' | 'FISHERMAN' | 'SHIPBUILDER' | 'SKALD';
+export type AgentRole = 'JARL' | 'WARRIOR' | 'FISHERMAN' | 'SHIPBUILDER';
 export type ActionType = 'MOVE' | 'GATHER' | 'FIGHT' | 'BUILD' | 'FLEE' | 'SPEAK' | 'IDLE';
 export type TaskType = 'GATHER' | 'DEPOSIT' | 'FIGHT' | 'FLEE' | 'MOVE_TO' | 'IDLE';
 export type AgentStatus = 'ALIVE' | 'DEAD' | 'THINKING';
@@ -92,11 +92,6 @@ export interface WorldEvent {
   affectedPositions: Position[];
 }
 
-export interface SagaLogEntry {
-  tick: number;
-  text: string;
-}
-
 export interface AgentTask {
   tick: number;
   agentName: string;
@@ -106,13 +101,36 @@ export interface AgentTask {
   reasoning: string;
 }
 
+// --- Agent observation ---
+export type ObservationType = 'RESOURCE_FOUND' | 'RESOURCE_DEPLETED' | 'THREAT_SPOTTED' | 'AREA_CLEAR';
+
+export interface AgentObservation {
+  tick: number;
+  agentName: string;
+  type: ObservationType;
+  description: string;
+  position: Position;
+}
+
+// --- Jarl directive ---
+export interface AgentAssignment {
+  agentName: string;
+  directive: string;
+}
+
+export interface JarlDirective {
+  tick: number;
+  assessment: string;
+  assignments: AgentAssignment[];
+}
+
 // --- WebSocket envelope ---
-export type TopicType = 'world-state' | 'agent-tasks' | 'world-events' | 'saga-log';
+export type TopicType = 'world-state' | 'agent-tasks' | 'world-events' | 'agent-directives' | 'agent-observations';
 
 export interface WSMessage {
   topic: TopicType;
   timestamp: number;
-  payload: WorldState | AgentTask | AgentAction | WorldEvent | SagaLogEntry;
+  payload: WorldState | AgentTask | AgentAction | WorldEvent | JarlDirective | AgentObservation;
 }
 
 // --- Toast notification ---

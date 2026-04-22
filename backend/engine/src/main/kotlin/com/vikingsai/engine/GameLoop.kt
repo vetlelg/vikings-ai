@@ -48,8 +48,7 @@ class GameLoop(
             "Bjorn" to AgentRole.JARL,
             "Astrid" to AgentRole.WARRIOR,
             "Erik" to AgentRole.FISHERMAN,
-            "Ingrid" to AgentRole.SHIPBUILDER,
-            "Sigurd" to AgentRole.SKALD
+            "Ingrid" to AgentRole.SHIPBUILDER
         )
 
         agentDefs.forEachIndexed { index, (name, role) ->

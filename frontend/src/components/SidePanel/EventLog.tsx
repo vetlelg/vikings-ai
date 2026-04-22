@@ -5,9 +5,10 @@ import styles from './EventLog.module.css';
 export function EventLog() {
   const worldEvents = useGameStore((s) => s.worldEvents);
   const agentTasks = useGameStore((s) => s.agentTasks);
+  const observations = useGameStore((s) => s.observations);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Merge events and tasks, sorted by tick
+  // Merge events, tasks, and observations, sorted by tick
   const entries = [
     ...worldEvents.map((e) => ({
       tick: e.tick,
@@ -20,6 +21,12 @@ export function EventLog() {
       type: t.taskType,
       text: `${t.agentName}: ${t.taskType}${t.targetResourceType ? ' (' + t.targetResourceType + ')' : ''} — ${t.reasoning}`,
       key: `t-${t.tick}-${t.agentName}`,
+    })),
+    ...observations.map((o) => ({
+      tick: o.tick,
+      type: `OBS_${o.type}`,
+      text: `${o.agentName}: ${o.description}`,
+      key: `o-${o.tick}-${o.agentName}-${o.type}`,
     })),
   ].sort((a, b) => a.tick - b.tick);
 

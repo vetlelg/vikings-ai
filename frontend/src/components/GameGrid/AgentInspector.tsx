@@ -9,7 +9,6 @@ const roleColors: Record<string, string> = {
   WARRIOR: '#c0392b',
   FISHERMAN: '#3498db',
   SHIPBUILDER: '#8b6914',
-  SKALD: '#9b59b6',
 };
 
 const resourceEmojis: Record<string, string> = {

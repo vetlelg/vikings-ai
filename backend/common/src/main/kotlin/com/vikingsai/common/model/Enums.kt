@@ -9,7 +9,7 @@ enum class TerrainType { GRASS, FOREST, WATER, MOUNTAIN, BEACH, VILLAGE }
 enum class ResourceType { TIMBER, FISH, IRON, FURS }
 
 @Serializable
-enum class AgentRole { JARL, WARRIOR, FISHERMAN, SHIPBUILDER, SKALD }
+enum class AgentRole { JARL, WARRIOR, FISHERMAN, SHIPBUILDER }
 
 @Serializable
 enum class ActionType { MOVE, GATHER, FIGHT, BUILD, FLEE, SPEAK, IDLE }

@@ -42,7 +42,9 @@ RESPOND WITH ONLY THE JSON. No markdown, no explanation outside the JSON.
     fun buildUserPrompt(
         name: String,
         worldState: WorldState,
-        recentEvents: List<WorldEvent>
+        recentEvents: List<WorldEvent>,
+        directive: JarlDirective? = null,
+        peerObservations: List<AgentObservation> = emptyList()
     ): String {
         val agent = worldState.agents.find { it.name == name }
             ?: return "You are not in the world. Wait."
@@ -140,6 +142,28 @@ RESPOND WITH ONLY THE JSON. No markdown, no explanation outside the JSON.
             sb.appendLine()
         }
 
+        // Jarl's directive (strategic context from colony leader)
+        if (directive != null) {
+            sb.appendLine("=== JARL'S DIRECTIVE (Tick ${directive.tick}) ===")
+            sb.appendLine("Assessment: ${directive.assessment}")
+            val myAssignment = directive.assignments.find { it.agentName == name }
+            if (myAssignment != null) {
+                sb.appendLine("YOUR ORDERS: ${myAssignment.directive}")
+            }
+            sb.appendLine("Consider the Jarl's orders, but override them if your local situation demands it (e.g., immediate threats, critical health).")
+            sb.appendLine()
+        }
+
+        // Peer observations (shared knowledge from other agents)
+        val recentObs = peerObservations.filter { worldState.tick - it.tick <= 20 }.takeLast(8)
+        if (recentObs.isNotEmpty()) {
+            sb.appendLine("=== SHARED OBSERVATIONS ===")
+            for (obs in recentObs) {
+                sb.appendLine("[Tick ${obs.tick}] ${obs.agentName}: ${obs.description}")
+            }
+            sb.appendLine()
+        }
+
         // Recent events
         if (recentEvents.isNotEmpty()) {
             sb.appendLine("=== RECENT EVENTS ===")
@@ -179,42 +203,106 @@ RESPOND WITH ONLY THE JSON. No markdown, no explanation outside the JSON.
         return best
     }
 
-    fun buildSkaldUserPrompt(
+    fun buildJarlStrategicSystemPrompt(): String {
+        return """
+You are Bjorn the Jarl — strategic commander of a Viking settlement. You are issuing a COLONY-WIDE DIRECTIVE.
+
+Your job is to assess the colony's overall situation and assign priorities to each Viking:
+- Astrid (Warrior): Best at combat. Can also gather furs.
+- Erik (Fisherman): Gathers fish and furs. Should flee from threats.
+- Ingrid (Shipbuilder): Gathers timber and iron. Should flee from threats.
+
+COLONY GOAL: Build a longship requiring 50 timber, 30 iron, and 20 furs deposited at the village.
+
+RESPOND WITH EXACTLY THIS JSON FORMAT:
+{
+  "assessment": "1-2 sentence colony situation summary",
+  "assignments": [
+    {"agentName": "Astrid", "directive": "short order"},
+    {"agentName": "Erik", "directive": "short order"},
+    {"agentName": "Ingrid", "directive": "short order"}
+  ]
+}
+
+RULES:
+- Focus on what the colony NEEDS MOST right now. Check resource progress.
+- If threats are active, assign Astrid to fight and non-combatants to safety.
+- Keep directives SHORT (under 10 words each).
+- Keep assessment SHORT (1-2 sentences).
+- RESPOND WITH ONLY THE JSON.
+        """.trimIndent()
+    }
+
+    fun buildJarlStrategicUserPrompt(
         worldState: WorldState,
-        recentEvents: List<WorldEvent>
+        recentEvents: List<WorldEvent>,
+        fieldReports: List<AgentObservation> = emptyList()
     ): String {
         val sb = StringBuilder()
-        sb.appendLine("=== WORLD STATE ===")
+
+        sb.appendLine("=== COLONY STATUS ===")
         sb.appendLine("Tick: ${worldState.tick} | Time: ${worldState.timeOfDay} | Weather: ${worldState.weather}")
-        sb.appendLine("Colony: timber=${worldState.colonyResources.timber}, fish=${worldState.colonyResources.fish}, iron=${worldState.colonyResources.iron}, furs=${worldState.colonyResources.furs}")
-        sb.appendLine("Longship progress: ${worldState.colonyResources.timber}/${worldState.voyageGoal.timber} timber, ${worldState.colonyResources.iron}/${worldState.voyageGoal.iron} iron, ${worldState.colonyResources.furs}/${worldState.voyageGoal.furs} furs")
         sb.appendLine()
 
+        // Resource progress toward longship
+        sb.appendLine("=== LONGSHIP PROGRESS ===")
+        sb.appendLine("Timber: ${worldState.colonyResources.timber}/${worldState.voyageGoal.timber}${if (worldState.colonyResources.timber >= worldState.voyageGoal.timber) " DONE" else ""}")
+        sb.appendLine("Iron: ${worldState.colonyResources.iron}/${worldState.voyageGoal.iron}${if (worldState.colonyResources.iron >= worldState.voyageGoal.iron) " DONE" else ""}")
+        sb.appendLine("Furs: ${worldState.colonyResources.furs}/${worldState.voyageGoal.furs}${if (worldState.colonyResources.furs >= worldState.voyageGoal.furs) " DONE" else ""}")
+        sb.appendLine("Fish (food): ${worldState.colonyResources.fish}")
+        sb.appendLine()
+
+        // All agents and what they're doing
         sb.appendLine("=== VIKINGS ===")
         for (a in worldState.agents) {
-            sb.appendLine("${a.name} (${a.role}) at (${a.position.x},${a.position.y}) HP=${a.health} ${a.status}")
+            val taskInfo = if (a.currentTaskType != null) "${a.currentTaskType}" else "no task"
+            val invInfo = if (a.inventory.isNotEmpty()) "carrying: ${a.inventory.entries.joinToString { "${it.value} ${it.key}" }}" else "empty inv"
+            sb.appendLine("${a.name} (${a.role}) HP=${a.health} ${a.status} | $taskInfo | $invInfo")
         }
         sb.appendLine()
 
+        // Active threats
         if (worldState.threats.isNotEmpty()) {
-            sb.appendLine("=== THREATS ===")
+            sb.appendLine("=== ACTIVE THREATS ===")
             for (t in worldState.threats) {
                 sb.appendLine("${t.type.uppercase()} at (${t.position.x},${t.position.y}) severity=${t.severity}")
             }
             sb.appendLine()
         }
 
-        sb.appendLine("=== RECENT EVENTS ===")
-        if (recentEvents.isEmpty()) {
-            sb.appendLine("The settlement is quiet.")
-        } else {
-            for (e in recentEvents.takeLast(8)) {
+        // Recent significant events
+        val significantEvents = recentEvents.filter {
+            it.eventType.name in setOf("DRAGON_SIGHTED", "DRAGON_DEFEATED", "RAID_INCOMING",
+                "AGENT_DIED", "WOLF_SPOTTED", "LONGSHIP_COMPLETE")
+        }.takeLast(5)
+        if (significantEvents.isNotEmpty()) {
+            sb.appendLine("=== RECENT SIGNIFICANT EVENTS ===")
+            for (e in significantEvents) {
                 sb.appendLine("[${e.eventType}] ${e.description}")
             }
+            sb.appendLine()
         }
 
-        sb.appendLine()
-        sb.appendLine("Write a brief, dramatic narration (1-3 sentences) of what is happening in the settlement. Write in the style of a Norse saga. Do not use JSON. Just write the narration text directly.")
+        // Available resource nodes by type
+        val resourceCounts = worldState.entities
+            .filter { it.type == EntityType.RESOURCE_NODE && (it.remaining ?: 0) > 0 }
+            .groupBy { it.subtype ?: "unknown" }
+            .mapValues { it.value.size }
+        sb.appendLine("=== AVAILABLE RESOURCE SOURCES ===")
+        sb.appendLine("Trees (timber): ${resourceCounts["tree"] ?: 0}")
+        sb.appendLine("Mines (iron): ${resourceCounts["mine"] ?: 0}")
+        sb.appendLine("Fishing spots (fish): ${resourceCounts["fishing_spot"] ?: 0}")
+        sb.appendLine("Hunting grounds (furs): ${resourceCounts["hunting_ground"] ?: 0}")
+
+        // Field reports from agents (distributed observations)
+        val recentReports = fieldReports.filter { worldState.tick - it.tick <= 20 }.takeLast(6)
+        if (recentReports.isNotEmpty()) {
+            sb.appendLine()
+            sb.appendLine("=== FIELD REPORTS ===")
+            for (r in recentReports) {
+                sb.appendLine("[Tick ${r.tick}] ${r.agentName}: ${r.description}")
+            }
+        }
 
         return sb.toString()
     }

@@ -106,38 +106,11 @@ export function ShipbuilderIcon() {
   );
 }
 
-// Sigurd — Skald: purple robe, scroll/lyre
-export function SkaldIcon() {
-  return (
-    <svg viewBox="0 0 32 32" style={style}>
-      {/* Body / robe */}
-      <path d="M10 18 L11 28 L21 28 L22 18 Z" fill="#4a2060" />
-      {/* Robe collar */}
-      <path d="M11 17 Q16 19 21 17 L21 20 Q16 22 11 20 Z" fill="#6a3a8a" />
-      {/* Head */}
-      <circle cx="16" cy="13" r="4.5" fill="#e8c89a" />
-      {/* Long hair */}
-      <path d="M11 11 Q10 16 10 20" stroke="#555" strokeWidth="1.5" fill="none" />
-      <path d="M21 11 Q22 16 22 20" stroke="#555" strokeWidth="1.5" fill="none" />
-      {/* Hood/cap */}
-      <path d="M11.5 12 Q16 6.5 20.5 12 Z" fill="#5a3080" />
-      {/* Eyes */}
-      <circle cx="14.5" cy="13" r="0.8" fill="#2a1a0a" />
-      <circle cx="17.5" cy="13" r="0.8" fill="#2a1a0a" />
-      {/* Lyre */}
-      <path d="M5 14 Q5 10 8 10 Q8 14 5 14 Z" stroke="#d4a843" strokeWidth="0.8" fill="none" />
-      <line x1="5.5" y1="11" x2="5.5" y2="13.5" stroke="#d4a843" strokeWidth="0.5" />
-      <line x1="7" y1="11" x2="7" y2="13.5" stroke="#d4a843" strokeWidth="0.5" />
-    </svg>
-  );
-}
-
 export function AgentRoleIcon({ role }: { role: AgentRole }) {
   switch (role) {
     case 'JARL': return <JarlIcon />;
     case 'WARRIOR': return <WarriorIcon />;
     case 'FISHERMAN': return <FishermanIcon />;
     case 'SHIPBUILDER': return <ShipbuilderIcon />;
-    case 'SKALD': return <SkaldIcon />;
   }
 }

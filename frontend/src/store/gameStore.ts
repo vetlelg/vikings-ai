@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import type {
-  WorldState, AgentAction, AgentTask, WorldEvent, SagaLogEntry, Toast,
+  WorldState, AgentAction, AgentTask, WorldEvent, Toast,
   AgentSnapshot, ColonyResources, TimeOfDay, Weather,
   ThreatSnapshot, EntitySnapshot, TerrainType, Position, GameStatus,
+  JarlDirective, AgentObservation,
 } from '../types/world';
 
 const TOAST_EVENT_TYPES = new Set([
@@ -26,7 +27,8 @@ interface GameState {
   // Rolling logs (capped)
   agentTasks: AgentTask[];
   worldEvents: WorldEvent[];
-  sagaEntries: SagaLogEntry[];
+  directives: JarlDirective[];
+  observations: AgentObservation[];
 
   // Latest task per agent (for action bubbles)
   latestTaskByAgent: Record<string, AgentTask>;
@@ -50,7 +52,8 @@ interface GameState {
   applyWorldState: (ws: WorldState) => void;
   addAgentTask: (t: AgentTask) => void;
   addWorldEvent: (e: WorldEvent) => void;
-  addSagaEntry: (s: SagaLogEntry) => void;
+  addDirective: (d: JarlDirective) => void;
+  addObservation: (o: AgentObservation) => void;
   setConnected: (c: boolean) => void;
   setSelectedAgent: (name: string | null) => void;
   removeToast: (id: string) => void;
@@ -70,7 +73,8 @@ export const useGameStore = create<GameState>((set) => ({
 
   agentTasks: [],
   worldEvents: [],
-  sagaEntries: [],
+  directives: [],
+  observations: [],
 
   latestTaskByAgent: {},
   selectedAgent: null,
@@ -133,8 +137,12 @@ export const useGameStore = create<GameState>((set) => ({
     return { worldEvents: newEvents };
   }),
 
-  addSagaEntry: (s) => set((state) => ({
-    sagaEntries: [...state.sagaEntries.slice(-29), s],
+  addDirective: (d) => set((state) => ({
+    directives: [...state.directives.slice(-19), d],
+  })),
+
+  addObservation: (o) => set((state) => ({
+    observations: [...state.observations.slice(-49), o],
   })),
 
   setConnected: (c) => set({ connected: c }),

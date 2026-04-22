@@ -4,30 +4,12 @@ import kotlinx.coroutines.delay
 
 class StubProvider(private val delayMs: Long = 500) : LlmProvider {
 
-    private val sagaNarrations = listOf(
-        "The wind whispers through the fjord as the Vikings toil beneath an iron sky. Odin watches from his throne in Asgard.",
-        "Smoke rises from the village hearth. The settlers move with purpose, each step a verse in the saga of their new home.",
-        "The mountains stand as silent sentinels while Bjorn surveys his domain. The gods have blessed this coastline.",
-        "Astrid sharpens her blade by firelight. The wolves will learn to fear the steel of the North.",
-        "Erik casts his nets into the dark waters of the fjord. The sea provides, as it always has, as it always will.",
-        "Ingrid measures timber with a practiced eye. Every beam she lays is a prayer to the Allfather for strength.",
-        "Night descends upon the settlement like a raven's wing. The stars above mirror the embers below.",
-        "A storm gathers beyond the mountains. The Vikings know well — the gods test those they favor most.",
-        "The colony grows stronger with each passing day. Soon, songs of this settlement will echo in the great halls.",
-        "Dawn breaks golden over the fjord. Another day begins in this land of ice and iron and unyielding will.",
-        "The forest yields its timber grudgingly, but the Northmen are patient. They have carved kingdoms from less.",
-        "Wolves howl in the distance. Let them come — the shield wall of the North has never broken.",
-    )
-
     override suspend fun complete(systemPrompt: String, userMessage: String, maxTokens: Int): String {
         delay(delayMs)
 
-        // Skald narration
-        if (userMessage.contains("Write a brief, dramatic narration") ||
-            userMessage.contains("Norse saga") ||
-            systemPrompt.contains("Skald")
-        ) {
-            return sagaNarrations.random()
+        // Jarl strategic directive
+        if (systemPrompt.contains("COLONY-WIDE DIRECTIVE")) {
+            return generateDirective(userMessage)
         }
 
         val ctx = parseContext(userMessage)
@@ -76,7 +58,6 @@ class StubProvider(private val delayMs: Long = 500) : LlmProvider {
         systemPrompt.contains("jarl", ignoreCase = true) -> "JARL"
         systemPrompt.contains("fisherman", ignoreCase = true) -> "FISHERMAN"
         systemPrompt.contains("shipbuilder", ignoreCase = true) -> "SHIPBUILDER"
-        systemPrompt.contains("skald", ignoreCase = true) -> "SKALD"
         else -> "UNKNOWN"
     }
 
@@ -118,5 +99,51 @@ class StubProvider(private val delayMs: Long = 500) : LlmProvider {
     private fun task(type: String, targetResource: String? = null, reasoning: String): String {
         val resourcePart = if (targetResource != null) ""","targetResourceType":"$targetResource"""" else ""
         return """{"taskType":"$type"$resourcePart,"reasoning":"$reasoning"}"""
+    }
+
+    private fun generateDirective(userMessage: String): String {
+        // Parse colony resource progress
+        val timber = Regex("""Timber: (\d+)/(\d+)""").find(userMessage)
+        val iron = Regex("""Iron: (\d+)/(\d+)""").find(userMessage)
+        val furs = Regex("""Furs: (\d+)/(\d+)""").find(userMessage)
+
+        val timberCurrent = timber?.groupValues?.get(1)?.toIntOrNull() ?: 0
+        val timberGoal = timber?.groupValues?.get(2)?.toIntOrNull() ?: 50
+        val ironCurrent = iron?.groupValues?.get(1)?.toIntOrNull() ?: 0
+        val ironGoal = iron?.groupValues?.get(2)?.toIntOrNull() ?: 30
+        val fursCurrent = furs?.groupValues?.get(1)?.toIntOrNull() ?: 0
+        val fursGoal = furs?.groupValues?.get(2)?.toIntOrNull() ?: 20
+
+        val hasThreats = userMessage.contains("=== ACTIVE THREATS ===")
+
+        // Determine what the colony needs most
+        val timberPct = timberCurrent.toFloat() / timberGoal
+        val ironPct = ironCurrent.toFloat() / ironGoal
+        val fursPct = fursCurrent.toFloat() / fursGoal
+
+        if (hasThreats) {
+            return """{"assessment":"Threats detected — defending the settlement takes priority.","assignments":[{"agentName":"Astrid","directive":"Engage all threats immediately"},{"agentName":"Erik","directive":"Fall back to the village for safety"},{"agentName":"Ingrid","directive":"Fall back to the village for safety"}]}"""
+        }
+
+        // Find the most-needed resource
+        data class Need(val name: String, val pct: Float, val astridOrder: String, val erikOrder: String, val ingridOrder: String)
+        val needs = listOf(
+            Need("timber", timberPct, "Gather furs from hunting grounds", "Gather fish from the fjord", "Prioritize timber from the forests"),
+            Need("iron", ironPct, "Gather furs from hunting grounds", "Gather fish from the fjord", "Prioritize iron from the mines"),
+            Need("furs", fursPct, "Gather furs from hunting grounds", "Gather furs from hunting grounds", "Gather timber from the forests")
+        ).filter { it.pct < 1.0f }
+
+        if (needs.isEmpty()) {
+            return """{"assessment":"All longship resources gathered — the voyage awaits!","assignments":[{"agentName":"Astrid","directive":"Patrol for remaining threats"},{"agentName":"Erik","directive":"Continue fishing for food stores"},{"agentName":"Ingrid","directive":"Deposit any remaining resources"}]}"""
+        }
+
+        val mostNeeded = needs.minByOrNull { it.pct }!!
+        val assessment = when {
+            mostNeeded.pct < 0.3f -> "Colony urgently needs more ${mostNeeded.name} for the longship."
+            mostNeeded.pct < 0.7f -> "Longship progress steady. Focus on ${mostNeeded.name} gathering."
+            else -> "Longship nearly complete. Final push for ${mostNeeded.name}."
+        }
+
+        return """{"assessment":"$assessment","assignments":[{"agentName":"Astrid","directive":"${mostNeeded.astridOrder}"},{"agentName":"Erik","directive":"${mostNeeded.erikOrder}"},{"agentName":"Ingrid","directive":"${mostNeeded.ingridOrder}"}]}"""
     }
 }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useGameStore } from '../store/gameStore';
-import type { WSMessage, WorldState, AgentTask, WorldEvent, SagaLogEntry, WorldCommand } from '../types/world';
+import type { WSMessage, WorldState, AgentTask, WorldEvent, JarlDirective, AgentObservation, WorldCommand } from '../types/world';
 
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8080/ws';
 
@@ -12,7 +12,8 @@ export function useGameSocket() {
   const applyWorldState = useGameStore((s) => s.applyWorldState);
   const addAgentTask = useGameStore((s) => s.addAgentTask);
   const addWorldEvent = useGameStore((s) => s.addWorldEvent);
-  const addSagaEntry = useGameStore((s) => s.addSagaEntry);
+  const addDirective = useGameStore((s) => s.addDirective);
+  const addObservation = useGameStore((s) => s.addObservation);
   const setConnected = useGameStore((s) => s.setConnected);
 
   const connect = useCallback(() => {
@@ -46,8 +47,11 @@ export function useGameSocket() {
             case 'world-events':
               addWorldEvent(msg.payload as WorldEvent);
               break;
-            case 'saga-log':
-              addSagaEntry(msg.payload as SagaLogEntry);
+            case 'agent-directives':
+              addDirective(msg.payload as JarlDirective);
+              break;
+            case 'agent-observations':
+              addObservation(msg.payload as AgentObservation);
               break;
           }
         } catch (e) {
@@ -75,7 +79,7 @@ export function useGameSocket() {
       attemptRef.current++;
       reconnectTimer.current = setTimeout(connect, delay);
     }
-  }, [applyWorldState, addAgentTask, addWorldEvent, addSagaEntry, setConnected]);
+  }, [applyWorldState, addAgentTask, addWorldEvent, addDirective, addObservation, setConnected]);
 
   useEffect(() => {
     connect();

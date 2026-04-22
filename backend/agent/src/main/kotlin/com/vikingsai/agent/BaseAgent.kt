@@ -6,14 +6,13 @@ import com.vikingsai.common.kafka.Topics
 import com.vikingsai.common.kafka.createConsumer
 import com.vikingsai.common.llm.LlmProvider
 import com.vikingsai.common.model.*
+import com.vikingsai.common.model.JarlDirective
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.slf4j.LoggerFactory
@@ -24,10 +23,12 @@ import java.util.concurrent.Semaphore
  * Base class for all Viking agents. Each agent:
  * 1. Consumes world-state and world-events from Kafka
  * 2. Decides when a new task is needed (no task, task completed, interrupt)
- * 3. Calls the LLM provider for a high-level task decision
- * 4. Publishes the task to agent-tasks (engine executes it mechanically)
+ * 3. Checks the reactive layer for fast, rule-based responses (no LLM)
+ * 4. Falls through to the LLM provider for strategic decisions
+ * 5. Publishes the task to agent-tasks (engine executes it mechanically)
  *
- * Agents only call the LLM when replanning — not every tick.
+ * The reactive layer handles survival (fight/flee/rest) instantly.
+ * The LLM handles strategy (what to gather, where to go, when to deposit).
  */
 open class BaseAgent(
     val name: String,
@@ -42,9 +43,12 @@ open class BaseAgent(
     private val log = LoggerFactory.getLogger("Agent-$name")
 
     private var latestWorldState: WorldState? = null
-    private val recentEvents = mutableListOf<WorldEvent>()
+    protected val recentEvents = mutableListOf<WorldEvent>()
     private var lastProcessedTick = -1
     private var lastTaskTick = -1
+    protected var latestDirective: JarlDirective? = null
+    protected val peerObservations = mutableListOf<AgentObservation>()
+    private val observationGenerator = ObservationGenerator(name)
 
     open suspend fun run() {
         log.info("$name the ${role.name} awakens")
@@ -53,7 +57,7 @@ open class BaseAgent(
             createConsumer(
                 bootstrapServers = bootstrapServers,
                 groupId = "agent-$name",
-                topics = listOf(Topics.WORLD_STATE, Topics.WORLD_EVENTS),
+                topics = listOf(Topics.WORLD_STATE, Topics.WORLD_EVENTS, Topics.AGENT_DIRECTIVES, Topics.AGENT_OBSERVATIONS),
                 fromBeginning = false
             )
         }
@@ -82,6 +86,24 @@ open class BaseAgent(
                                 log.warn("Failed to parse world event: ${e.message}")
                             }
                         }
+                        Topics.AGENT_DIRECTIVES -> {
+                            try {
+                                latestDirective = GameJson.decodeFromString<JarlDirective>(record.value())
+                            } catch (e: Exception) {
+                                log.warn("Failed to parse directive: ${e.message}")
+                            }
+                        }
+                        Topics.AGENT_OBSERVATIONS -> {
+                            try {
+                                val obs = GameJson.decodeFromString<AgentObservation>(record.value())
+                                if (obs.agentName != name) {  // Only store peer observations
+                                    peerObservations.add(obs)
+                                    if (peerObservations.size > 20) peerObservations.removeFirst()
+                                }
+                            } catch (e: Exception) {
+                                log.warn("Failed to parse observation: ${e.message}")
+                            }
+                        }
                     }
                 }
 
@@ -95,9 +117,32 @@ open class BaseAgent(
                 // Only replan when needed
                 if (self != null && needsNewTask(self, ws)) {
                     try {
-                        sendTask(ws)
+                        // Reactive layer: fast rule-based response for urgent situations
+                        val reactiveTask = ReactiveLayer.evaluate(self, ws, role)
+                        if (reactiveTask != null) {
+                            publishTask(reactiveTask)
+                        } else {
+                            // Deliberative layer: LLM for strategic decisions
+                            sendTask(ws)
+                        }
                     } catch (e: Exception) {
                         log.error("Error planning task at tick ${ws.tick}: ${e.message}")
+                    }
+                }
+
+                // Per-tick hook for subclass behavior (e.g., Jarl directives)
+                if (self != null) {
+                    onTick(self, ws)
+                }
+
+                // Generate and publish observations about our surroundings
+                if (self != null && self.status == AgentStatus.ALIVE) {
+                    val observations = observationGenerator.scan(self, ws)
+                    for (obs in observations) {
+                        val obsJson = GameJson.encodeToString(AgentObservation.serializer(), obs)
+                        withContext(Dispatchers.IO) {
+                            producer.send(ProducerRecord(Topics.AGENT_OBSERVATIONS, name, obsJson))
+                        }
                     }
                 }
             }
@@ -106,6 +151,12 @@ open class BaseAgent(
             log.info("$name goes to sleep")
         }
     }
+
+    /**
+     * Per-tick hook for subclass behavior. Called every tick after task processing.
+     * The Jarl overrides this to issue strategic directives.
+     */
+    protected open suspend fun onTick(self: AgentSnapshot, ws: WorldState) {}
 
     /**
      * Determines if the agent needs to replan.
@@ -134,9 +185,18 @@ open class BaseAgent(
         return false
     }
 
+    protected suspend fun publishTask(task: AgentTask) {
+        val json = GameJson.encodeToString(AgentTask.serializer(), task)
+        withContext(Dispatchers.IO) {
+            producer.send(ProducerRecord(Topics.AGENT_TASKS, name, json))
+        }
+        lastTaskTick = task.tick
+        log.info("[Tick ${task.tick}] TASK: ${task.taskType}${if (task.targetResourceType != null) " (${task.targetResourceType})" else ""} — ${task.reasoning.take(60)}")
+    }
+
     protected open suspend fun sendTask(worldState: WorldState) {
         val systemPrompt = PromptBuilder.buildSystemPrompt(name, role, personality)
-        val userPrompt = PromptBuilder.buildUserPrompt(name, worldState, recentEvents)
+        val userPrompt = PromptBuilder.buildUserPrompt(name, worldState, recentEvents, latestDirective, peerObservations)
 
         rateLimiter?.let { withContext(Dispatchers.IO) { it.acquire() } }
         try {
@@ -144,12 +204,7 @@ open class BaseAgent(
             val task = parseTask(response, worldState.tick)
 
             if (task != null) {
-                val json = GameJson.encodeToString(AgentTask.serializer(), task)
-                withContext(Dispatchers.IO) {
-                    producer.send(ProducerRecord(Topics.AGENT_TASKS, name, json))
-                }
-                lastTaskTick = worldState.tick
-                log.info("[Tick ${worldState.tick}] TASK: ${task.taskType}${if (task.targetResourceType != null) " (${task.targetResourceType})" else ""} — ${task.reasoning.take(60)}")
+                publishTask(task)
             }
         } finally {
             rateLimiter?.release()

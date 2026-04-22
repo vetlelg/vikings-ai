@@ -1,4 +1,4 @@
-import { SagaLog } from './SagaLog';
+import { DirectiveLog } from './DirectiveLog';
 import { EventLog } from './EventLog';
 
 export function SidePanel() {
@@ -12,7 +12,7 @@ export function SidePanel() {
         overflow: 'hidden',
       }}
     >
-      <SagaLog />
+      <DirectiveLog />
       <EventLog />
     </div>
   );

@@ -31,7 +31,6 @@ fun main() {
         WarriorAgent(provider, producer, kafkaConfig.bootstrapServers, llmConfig.maxTokens, rateLimiter),
         FishermanAgent(provider, producer, kafkaConfig.bootstrapServers, llmConfig.maxTokens, rateLimiter),
         ShipbuilderAgent(provider, producer, kafkaConfig.bootstrapServers, llmConfig.maxTokens, rateLimiter),
-        SkaldAgent(provider, producer, kafkaConfig.bootstrapServers, llmConfig.maxTokens, rateLimiter),
     )
 
     log.info("Launching ${agents.size} agents: ${agents.joinToString { "${it.name} (${it.role})" }}")
