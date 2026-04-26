@@ -9,8 +9,3 @@ data class BridgeEnvelope(
     val timestamp: Long,
     val payload: JsonElement
 )
-
-@Serializable
-data class WorldCommand(
-    val command: String
-)

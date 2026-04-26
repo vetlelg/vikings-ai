@@ -11,8 +11,8 @@ import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Background coroutine that consumes all 4 Kafka topics and broadcasts
- * each message as a BridgeEnvelope to all connected WebSocket sessions.
+ * Consumes agent decision topics from Kafka and forwards them to Phaser via WebSocket.
+ * Also forwards commander orders so the spectator UI can display agent reasoning.
  */
 class KafkaForwarder(
     private val bootstrapServers: String,
@@ -29,21 +29,15 @@ class KafkaForwarder(
             val consumer = createConsumer(
                 bootstrapServers = bootstrapServers,
                 groupId = "bridge-${System.currentTimeMillis()}",
-                topics = listOf(
-                    Topics.WORLD_STATE,
-                    Topics.AGENT_TASKS,
-                    Topics.WORLD_EVENTS,
-                    Topics.AGENT_DIRECTIVES,
-                    Topics.AGENT_OBSERVATIONS
-                ),
+                topics = Topics.BRIDGE_FORWARD_TO_PHASER,
                 fromBeginning = false
             )
 
-            log.info("Kafka forwarder connected, consuming from all topics")
+            log.info("Kafka forwarder consuming: ${Topics.BRIDGE_FORWARD_TO_PHASER}")
 
             try {
                 while (isActive) {
-                    val records = consumer.poll(Duration.ofMillis(500))
+                    val records = consumer.poll(Duration.ofMillis(100))
                     for (record in records) {
                         try {
                             val payload: JsonElement = json.parseToJsonElement(record.value())
@@ -54,10 +48,8 @@ class KafkaForwarder(
                             )
                             val envelopeJson = json.encodeToString(BridgeEnvelope.serializer(), envelope)
 
-                            // Record for replay
                             recorder.record(envelopeJson)
 
-                            // Broadcast to all connected clients
                             val deadSessions = mutableListOf<WebSocketSession>()
                             for (session in sessions) {
                                 try {
@@ -68,9 +60,7 @@ class KafkaForwarder(
                             }
                             deadSessions.forEach { sessions.remove(it) }
 
-                            if (record.topic() != Topics.WORLD_STATE) {
-                                log.debug("Forwarded [${record.topic()}] to ${sessions.size} client(s)")
-                            }
+                            log.debug("Forwarded [${record.topic()}] to ${sessions.size} client(s)")
                         } catch (e: Exception) {
                             log.warn("Failed to process record from ${record.topic()}: ${e.message}")
                         }

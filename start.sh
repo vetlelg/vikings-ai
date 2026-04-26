@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Viking Settlement — Start all services
+# RTS AI — Start all services
 # Usage: ./start.sh [stub|claude|gemini|groq]
-# If no argument given, reads LLM_PROVIDER from .env (defaults to stub)
 
 set -e
 
@@ -21,7 +20,7 @@ fi
 PROVIDER="${LLM_PROVIDER:-stub}"
 export LLM_PROVIDER="$PROVIDER"
 
-echo "=== Viking Settlement ==="
+echo "=== RTS AI ==="
 echo "LLM Provider: $LLM_PROVIDER"
 echo "LLM Model:    ${LLM_MODEL:-default}"
 echo ""
@@ -36,39 +35,43 @@ done
 echo "Kafka is ready."
 echo ""
 
-# 2. Start Engine
-echo "[2/5] Starting Game Engine..."
+# 2. Pre-build backend
+echo "[2/5] Building backend..."
 cd "$SCRIPT_DIR/backend"
-./gradlew :engine:run &
-ENGINE_PID=$!
-sleep 5
+./gradlew :bridge:classes :agent:classes
+echo ""
 
 # 3. Start Bridge
 echo "[3/5] Starting WebSocket Bridge..."
 ./gradlew :bridge:run &
 BRIDGE_PID=$!
-sleep 3
+echo "Waiting for Bridge to start..."
+sleep 10
 
 # 4. Start Agents
 echo "[4/5] Starting AI Agents (provider: $LLM_PROVIDER)..."
 ./gradlew :agent:run &
 AGENT_PID=$!
+echo "Waiting for Agents to start..."
+sleep 5
 
 # 5. Start Frontend
 echo "[5/5] Starting Frontend..."
 cd "$SCRIPT_DIR/frontend"
 npm run dev &
 FRONTEND_PID=$!
+sleep 3
 
 echo ""
 echo "=== All services running ==="
 echo "Frontend:  http://localhost:5173"
 echo "Bridge:    ws://localhost:8080/ws"
-echo "Replay:    ws://localhost:8080/replay"
+echo ""
+echo "The game starts with local test AI."
+echo "Press B in the browser to switch to backend AI agents."
 echo ""
 echo "Press Ctrl+C to stop all services."
 
-# Trap Ctrl+C to clean up
-trap 'echo "Shutting down..."; kill $ENGINE_PID $BRIDGE_PID $AGENT_PID $FRONTEND_PID 2>/dev/null; docker compose -f "$SCRIPT_DIR/docker-compose.yml" down; exit 0' INT TERM
+trap 'echo "Shutting down..."; kill $BRIDGE_PID $AGENT_PID $FRONTEND_PID 2>/dev/null; docker compose -f "$SCRIPT_DIR/docker-compose.yml" down; exit 0' INT TERM
 
 wait

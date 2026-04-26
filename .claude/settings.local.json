@@ -1,9 +1,21 @@
 {
   "permissions": {
     "allow": [
-      "Bash(./gradlew :agent:compileKotlin)",
-      "Bash(./gradlew compileKotlin)",
-      "Bash(npx tsc *)"
+      "Bash(./gradlew *)",
+      "Bash(npx tsc *)",
+      "Bash(npx vite *)",
+      "Bash(npm install *)",
+      "Bash(npm install)",
+      "Bash(npm run *)",
+      "Bash(mkdir *)",
+      "Bash(rm -rf *)",
+      "Bash(rm *)",
+      "Bash(mv *)",
+      "Bash(cp *)",
+      "Bash(docker compose *)",
+      "Bash(cd *)",
+      "Bash(cat *)",
+      "Bash(jobs -l)"
     ]
   }
 }

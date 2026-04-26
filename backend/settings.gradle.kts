@@ -1,3 +1,3 @@
-rootProject.name = "viking-settlement"
+rootProject.name = "rts-ai"
 
-include("common", "engine", "agent", "bridge")
+include("common", "agent", "bridge")
